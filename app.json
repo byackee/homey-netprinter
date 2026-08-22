@@ -84,6 +84,23 @@
     "email": "admin@dataweavelabs.com"
   },
   "support": "mailto:admin@dataweavelabs.com",
+  "api": {
+    "getDiagnostics": {
+      "method": "GET",
+      "path": "/diagnostics",
+      "role": "owner"
+    },
+    "getScan": {
+      "method": "GET",
+      "path": "/scan",
+      "role": "owner"
+    },
+    "postTest": {
+      "method": "POST",
+      "path": "/test",
+      "role": "owner"
+    }
+  },
   "esm": true,
   "flow": {
     "triggers": [

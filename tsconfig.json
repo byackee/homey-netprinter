@@ -3,7 +3,9 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2023"],
+    "lib": [
+      "ES2023"
+    ],
     "outDir": ".homeybuild/",
     "sourceMap": true,
     "strict": true,
@@ -13,6 +15,14 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
-  "include": ["app.mts", "api.mts", "lib/**/*.mts", "drivers/**/*.mts"],
-  "exclude": ["node_modules", ".homeybuild"]
+  "include": [
+    "app.mts",
+    "api.mts",
+    "lib/**/*.mts",
+    "drivers/**/*.mts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".homeybuild"
+  ]
 }

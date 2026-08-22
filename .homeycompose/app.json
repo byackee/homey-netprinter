@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "compatibility": ">=12.0.1",
   "sdk": 3,
-  "platforms": ["local"],
+  "platforms": [
+    "local"
+  ],
   "brandColor": "#1B6AC9",
   "name": {
     "en": "Network Printer",
@@ -15,11 +17,61 @@
     "fr": "Encre, toner et état de toute imprimante réseau",
     "nl": "Inkt, toner en status van elke netwerkprinter"
   },
-  "category": ["tools"],
+  "category": [
+    "tools"
+  ],
   "tags": {
-    "en": ["printer", "ink", "toner", "cartridge", "snmp", "epson", "hp", "brother", "canon", "kyocera", "lexmark", "ricoh", "oki", "xerox", "samsung"],
-    "fr": ["imprimante", "encre", "toner", "cartouche", "snmp", "epson", "hp", "brother", "canon", "kyocera", "lexmark", "ricoh", "oki", "xerox", "samsung"],
-    "nl": ["printer", "inkt", "toner", "cartridge", "snmp", "epson", "hp", "brother", "canon", "kyocera", "lexmark", "ricoh", "oki", "xerox", "samsung"]
+    "en": [
+      "printer",
+      "ink",
+      "toner",
+      "cartridge",
+      "snmp",
+      "epson",
+      "hp",
+      "brother",
+      "canon",
+      "kyocera",
+      "lexmark",
+      "ricoh",
+      "oki",
+      "xerox",
+      "samsung"
+    ],
+    "fr": [
+      "imprimante",
+      "encre",
+      "toner",
+      "cartouche",
+      "snmp",
+      "epson",
+      "hp",
+      "brother",
+      "canon",
+      "kyocera",
+      "lexmark",
+      "ricoh",
+      "oki",
+      "xerox",
+      "samsung"
+    ],
+    "nl": [
+      "printer",
+      "inkt",
+      "toner",
+      "cartridge",
+      "snmp",
+      "epson",
+      "hp",
+      "brother",
+      "canon",
+      "kyocera",
+      "lexmark",
+      "ricoh",
+      "oki",
+      "xerox",
+      "samsung"
+    ]
   },
   "images": {
     "small": "/assets/images/small.png",
@@ -30,5 +82,22 @@
     "name": "DataWeave Labs",
     "email": "admin@dataweavelabs.com"
   },
-  "support": "mailto:admin@dataweavelabs.com"
+  "support": "mailto:admin@dataweavelabs.com",
+  "api": {
+    "getDiagnostics": {
+      "method": "GET",
+      "path": "/diagnostics",
+      "role": "owner"
+    },
+    "getScan": {
+      "method": "GET",
+      "path": "/scan",
+      "role": "owner"
+    },
+    "postTest": {
+      "method": "POST",
+      "path": "/test",
+      "role": "owner"
+    }
+  }
 }

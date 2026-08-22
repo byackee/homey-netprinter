@@ -20,5 +20,23 @@
     "add": "Add",
     "repair_title": "Correct the address",
     "repair_intro": "Enter the printer's current IP address. Use this when the printer moved to a new address and stopped answering."
+  },
+  "settings": {
+    "printers": "Paired printers",
+    "printers_hint": "Read live from each printer, so this shows whether it answers right now.",
+    "test": "Test an address",
+    "test_hint": "Ask one address what it reports, without adding it. Useful when a printer is not found by the sweep.",
+    "test_button": "Test",
+    "testing": "Contacting…",
+    "sweep": "Search the network",
+    "sweep_hint": "The same sweep pairing runs. Takes around fifteen seconds.",
+    "sweep_button": "Search",
+    "sweeping": "Sweeping the network…",
+    "sweep_empty": "No printer answered on",
+    "no_subnet": "Could not work out this network's address range.",
+    "no_devices": "No printer paired yet.",
+    "loading": "Reading printers…",
+    "pages": "pages",
+    "unknown": "unknown"
   }
 }

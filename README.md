@@ -85,6 +85,21 @@ npx tsc -p tsconfig.tools.json && node .toolsbuild/tools/probe.mjs 192.168.1.50 
 - **A receptacle fills up as it is used.** `prtMarkerSuppliesClass` 4 reports how
   full the waste tank is, so its percentage is inverted before display.
 
+- **On a settings page, `Homey` is not a global** — it is the argument of
+  `onHomeyReady(Homey)`. Code outside that function which touches Homey throws a
+  ReferenceError that nothing surfaces. In a *pairing* view the opposite holds:
+  `Homey` is global there.
+- **Do not await the first poll in `onInit`.** Homey initialises devices in
+  sequence, so blocking on a sleeping printer holds up every device behind it.
+
+## Settings page
+
+The app's settings page reads every paired printer live, tests a single address
+without pairing it, and runs the same sweep pairing uses. It exists because an
+app installed with `homey app install` has no readable log: Developer Tools lists
+only App Store submissions and the CLI has no log command, so without this page a
+failing SNMP read is completely opaque.
+
 ## Licence
 
 MIT

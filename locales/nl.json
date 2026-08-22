@@ -20,5 +20,23 @@
     "add": "Toevoegen",
     "repair_title": "Adres corrigeren",
     "repair_intro": "Voer het huidige IP-adres van de printer in. Gebruik dit wanneer de printer een ander adres heeft gekregen en niet meer antwoordt."
+  },
+  "settings": {
+    "printers": "Gekoppelde printers",
+    "printers_hint": "Live uitgelezen per printer, dus dit toont of hij nú antwoordt.",
+    "test": "Een adres testen",
+    "test_hint": "Vraag één adres wat het meldt, zonder het toe te voegen. Handig als een printer niet gevonden wordt.",
+    "test_button": "Testen",
+    "testing": "Verbinden…",
+    "sweep": "Netwerk doorzoeken",
+    "sweep_hint": "Dezelfde zoekactie als bij het koppelen. Duurt ongeveer vijftien seconden.",
+    "sweep_button": "Zoeken",
+    "sweeping": "Netwerk doorzoeken…",
+    "sweep_empty": "Geen printer antwoordde op",
+    "no_subnet": "Kon het adresbereik van dit netwerk niet bepalen.",
+    "no_devices": "Nog geen printer gekoppeld.",
+    "loading": "Printers uitlezen…",
+    "pages": "pagina's",
+    "unknown": "onbekend"
   }
 }

@@ -1,0 +1,203 @@
+<script type="text/javascript" src="/homey.js" data-origin="settings"></script>
+
+<style>
+  body { line-height: 1.5; }
+  h2 { margin: 1.5rem 0 .5rem; font-size: 1.05rem; }
+  h2:first-child { margin-top: 0; }
+  p.hint { color: var(--homey-text-color-light); margin: 0 0 1rem; }
+  .card {
+    border: 1px solid var(--homey-line-color); border-radius: 8px;
+    padding: .85rem .95rem; margin-bottom: .75rem;
+  }
+  .card .title { font-weight: 600; }
+  .card .sub { color: var(--homey-text-color-light); font-size: .88rem; }
+  .bad { color: var(--homey-color-red, #da3633); }
+  .ok { color: var(--homey-color-green, #2ea043); }
+  table { width: 100%; border-collapse: collapse; margin-top: .6rem; font-size: .92rem; }
+  td { padding: .22rem 0; }
+  td.level { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bar { height: 5px; border-radius: 3px; background: var(--homey-line-color); margin-top: .2rem; }
+  .bar > span { display: block; height: 100%; border-radius: 3px; background: var(--homey-color-blue, #1B6AC9); }
+  .row { display: flex; gap: .5rem; margin-bottom: .75rem; }
+  .row input {
+    flex: 1; min-width: 0; padding: .55rem .65rem; font-size: 1rem;
+    border: 1px solid var(--homey-line-color); border-radius: 6px;
+    background: var(--homey-background-color); color: var(--homey-text-color);
+  }
+  button {
+    padding: .55rem 1rem; border-radius: 6px; border: 0; cursor: pointer;
+    background: var(--homey-color-blue, #1B6AC9); color: #fff; font: inherit;
+  }
+  button:disabled { opacity: .55; cursor: default; }
+  pre {
+    white-space: pre-wrap; word-break: break-word; margin: .5rem 0 0;
+    font-size: .85rem; color: var(--homey-text-color-light);
+  }
+</style>
+
+<h2 data-i18n="settings.printers"></h2>
+<p class="hint" data-i18n="settings.printers_hint"></p>
+<div id="devices"></div>
+
+<h2 data-i18n="settings.test"></h2>
+<p class="hint" data-i18n="settings.test_hint"></p>
+<div class="row">
+  <input type="text" id="host" inputmode="decimal" autocomplete="off" placeholder="192.168.1.50">
+  <input type="text" id="community" autocomplete="off" value="public" style="max-width:9rem">
+  <button type="button" id="test" data-i18n="settings.test_button"></button>
+</div>
+<div id="test-result"></div>
+
+<h2 data-i18n="settings.sweep"></h2>
+<p class="hint" data-i18n="settings.sweep_hint"></p>
+<button type="button" id="sweep" data-i18n="settings.sweep_button"></button>
+<div id="sweep-result"></div>
+
+<script type="text/javascript">
+  /*
+   * Everything lives inside onHomeyReady because `Homey` is not a global on a
+   * settings page: it is handed to this function. Code outside it that touches
+   * Homey throws a ReferenceError, which is invisible here — a CLI-installed app
+   * has no readable log, which is the very problem this page exists to solve.
+   */
+  function onHomeyReady(Homey) {
+    Homey.ready();
+
+    function esc(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      })[c]);
+    }
+
+    function call(method, path, body) {
+      return new Promise((resolve, reject) => {
+        Homey.api(method, path, body || null, (err, result) => {
+          if (err) reject(err instanceof Error ? err : new Error(String(err)));
+          else resolve(result);
+        });
+      });
+    }
+
+    /** A level of null means the printer declined to say — shown as such, never as 0. */
+    function levelCell(percent) {
+      if (percent === null || percent === undefined) {
+        return '<td class="level sub">' + esc(Homey.__('settings.unknown')) + '</td>';
+      }
+      return '<td class="level">' + percent + ' %</td>';
+    }
+
+    function suppliesTable(supplies) {
+      if (!supplies || !supplies.length) return '';
+      let html = '<table>';
+      for (const supply of supplies) {
+        const width = (supply.percent === null || supply.percent === undefined) ? 0 : supply.percent;
+        html +=
+          '<tr><td>' + esc(supply.description || supply.colour) +
+          '<div class="bar"><span style="width:' + width + '%"></span></div></td>' +
+          levelCell(supply.percent) + '</tr>';
+      }
+      return html + '</table>';
+    }
+
+    async function loadDevices() {
+      const target = document.getElementById('devices');
+      target.innerHTML = '<p class="hint">' + esc(Homey.__('settings.loading')) + '</p>';
+
+      try {
+        const data = await call('GET', '/diagnostics');
+        if (!data.devices.length) {
+          target.innerHTML = '<p class="hint">' + esc(Homey.__('settings.no_devices')) + '</p>';
+          return;
+        }
+
+        target.innerHTML = data.devices.map((device) => {
+          const head =
+            '<div class="title">' + esc(device.name) + '</div>' +
+            '<div class="sub">' + esc(device.host) + ' · SNMP ' + esc(device.version) + '</div>';
+
+          if (device.error) {
+            return '<div class="card">' + head +
+              '<div class="bad">' + esc(device.error) + '</div></div>';
+          }
+
+          const r = device.reading;
+          const bits = [r.status];
+          if (r.display) bits.push('"' + r.display + '"');
+          if (r.pages !== null) bits.push(r.pages + ' ' + Homey.__('settings.pages'));
+
+          return '<div class="card">' + head +
+            '<div class="sub">' + esc(bits.join(' · ')) + '</div>' +
+            (r.errors.length ? '<div class="bad">' + esc(r.errors.join(', ')) + '</div>' : '') +
+            suppliesTable(r.supplies) +
+            '</div>';
+        }).join('');
+      } catch (error) {
+        target.innerHTML = '<p class="bad">' + esc(error.message) + '</p>';
+      }
+    }
+
+    async function runTest() {
+      const button = document.getElementById('test');
+      const target = document.getElementById('test-result');
+      button.disabled = true;
+      target.innerHTML = '<p class="hint">' + esc(Homey.__('settings.testing')) + '</p>';
+
+      try {
+        const answer = await call('POST', '/test', {
+          host: document.getElementById('host').value.trim(),
+          community: document.getElementById('community').value.trim(),
+        });
+
+        if (!answer.ok) {
+          target.innerHTML = '<div class="card bad">' + esc(answer.message) + '</div>';
+          return;
+        }
+
+        const name = [answer.vendor, answer.model].filter(Boolean).join(' ');
+        target.innerHTML = '<div class="card">' +
+          '<div class="title ok">' + esc(name) + '</div>' +
+          '<div class="sub">SNMP ' + esc(answer.version) +
+          (answer.serial ? ' · ' + esc(answer.serial) : '') + '</div>' +
+          suppliesTable(answer.supplies) + '</div>';
+      } catch (error) {
+        target.innerHTML = '<p class="bad">' + esc(error.message) + '</p>';
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function runSweep() {
+      const button = document.getElementById('sweep');
+      const target = document.getElementById('sweep-result');
+      button.disabled = true;
+      target.innerHTML = '<p class="hint">' + esc(Homey.__('settings.sweeping')) + '</p>';
+
+      try {
+        const data = await call('GET', '/scan');
+        if (!data.subnet) {
+          target.innerHTML = '<p class="bad">' + esc(Homey.__('settings.no_subnet')) + '</p>';
+          return;
+        }
+        if (!data.found.length) {
+          target.innerHTML = '<p class="hint">' + esc(Homey.__('settings.sweep_empty')) +
+            ' (' + esc(data.subnet) + '.0/24)</p>';
+          return;
+        }
+        target.innerHTML = data.found.map((printer) =>
+          '<div class="card">' +
+          '<div class="title">' + esc([printer.vendor, printer.model].filter(Boolean).join(' ')) + '</div>' +
+          '<div class="sub">' + esc(printer.host) +
+          (printer.serial ? ' · ' + esc(printer.serial) : '') + '</div></div>').join('');
+      } catch (error) {
+        target.innerHTML = '<p class="bad">' + esc(error.message) + '</p>';
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    document.getElementById('test').addEventListener('click', runTest);
+    document.getElementById('sweep').addEventListener('click', runSweep);
+
+    loadDevices();
+  }
+</script>

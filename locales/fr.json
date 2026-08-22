@@ -20,5 +20,23 @@
     "add": "Ajouter",
     "repair_title": "Corriger l’adresse",
     "repair_intro": "Saisissez l’adresse IP actuelle de l’imprimante. À utiliser quand elle a changé d’adresse et ne répond plus."
+  },
+  "settings": {
+    "printers": "Imprimantes appairées",
+    "printers_hint": "Relevé en direct sur chaque imprimante : ceci montre si elle répond maintenant.",
+    "test": "Tester une adresse",
+    "test_hint": "Interroge une adresse sans l’ajouter. Utile quand une imprimante n’est pas trouvée par la recherche.",
+    "test_button": "Tester",
+    "testing": "Contact en cours…",
+    "sweep": "Rechercher sur le réseau",
+    "sweep_hint": "La même recherche que lors de l’ajout. Prend une quinzaine de secondes.",
+    "sweep_button": "Rechercher",
+    "sweeping": "Balayage du réseau…",
+    "sweep_empty": "Aucune imprimante n’a répondu sur",
+    "no_subnet": "Impossible de déterminer la plage d’adresses de ce réseau.",
+    "no_devices": "Aucune imprimante appairée pour l’instant.",
+    "loading": "Relevé des imprimantes…",
+    "pages": "pages",
+    "unknown": "inconnu"
   }
 }

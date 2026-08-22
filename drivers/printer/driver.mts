@@ -55,14 +55,12 @@ export default class PrinterDriver extends Homey.Driver {
     this.homey.flow
       .getConditionCard('supply_below')
       .registerArgumentAutocompleteListener('capability', async (query, args: { device: PrinterDevice }) => {
+        const wanted = query.toLowerCase();
         return args.device
           .getCapabilities()
           .filter((c) => c.startsWith('supply_'))
-          .map((id) => ({
-            id,
-            name: String(args.device.getCapabilityOptions(id)?.title ?? id),
-          }))
-          .filter((item) => item.name.toLowerCase().includes(query.toLowerCase()));
+          .map((id) => ({ id, name: this.capabilityLabel(args.device, id) }))
+          .filter((item) => item.name.toLowerCase().includes(wanted));
       });
 
     this.homey.flow
@@ -171,6 +169,28 @@ export default class PrinterDriver extends Homey.Driver {
         return { ok: false, message: (error as Error).message };
       }
     });
+  }
+
+  /**
+   * The name to show for a supply capability in a Flow picker.
+   *
+   * A capability the device has renamed after its cartridge carries a plain
+   * string; one left at its default carries the translation object declared in
+   * the capability JSON. Stringifying that object blindly puts "[object Object]"
+   * in front of the user, so both shapes are handled.
+   */
+  private capabilityLabel(device: PrinterDevice, capabilityId: string): string {
+    const title = device.getCapabilityOptions(capabilityId)?.title as unknown;
+
+    if (typeof title === 'string' && title.length > 0) return title;
+
+    if (title !== null && typeof title === 'object') {
+      const translations = title as Record<string, unknown>;
+      const preferred = translations[this.homey.i18n.getLanguage()] ?? translations.en;
+      if (typeof preferred === 'string' && preferred.length > 0) return preferred;
+    }
+
+    return capabilityId;
   }
 
   /**

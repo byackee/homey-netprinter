@@ -37,8 +37,11 @@ export default class PrinterDevice extends Homey.Device {
 
   override async onInit(): Promise<void> {
     this.buildReader();
-    await this.poll();
-    this.scheduleNextPoll();
+
+    // The first poll is started, not awaited. Homey initialises devices in
+    // sequence, so blocking here for a printer that is asleep — up to a full
+    // SNMP timeout per OID — would hold up every other device behind it.
+    void this.poll().finally(() => this.scheduleNextPoll());
   }
 
   /** Rebuilds the SNMP reader from current settings. Called on init and on every settings change. */
