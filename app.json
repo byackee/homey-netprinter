@@ -1,0 +1,1024 @@
+{
+  "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
+  "id": "com.dataweavelabs.netprinter",
+  "version": "1.0.0",
+  "compatibility": ">=12.0.1",
+  "sdk": 3,
+  "platforms": [
+    "local"
+  ],
+  "brandColor": "#1B6AC9",
+  "name": {
+    "en": "Network Printer",
+    "fr": "Imprimante réseau",
+    "nl": "Netwerkprinter"
+  },
+  "description": {
+    "en": "Ink, toner and status for any network printer",
+    "fr": "Encre, toner et état de toute imprimante réseau",
+    "nl": "Inkt, toner en status van elke netwerkprinter"
+  },
+  "category": [
+    "tools"
+  ],
+  "tags": {
+    "en": [
+      "printer",
+      "ink",
+      "toner",
+      "cartridge",
+      "snmp",
+      "epson",
+      "hp",
+      "brother",
+      "canon",
+      "kyocera",
+      "lexmark",
+      "ricoh",
+      "oki",
+      "xerox",
+      "samsung"
+    ],
+    "fr": [
+      "imprimante",
+      "encre",
+      "toner",
+      "cartouche",
+      "snmp",
+      "epson",
+      "hp",
+      "brother",
+      "canon",
+      "kyocera",
+      "lexmark",
+      "ricoh",
+      "oki",
+      "xerox",
+      "samsung"
+    ],
+    "nl": [
+      "printer",
+      "inkt",
+      "toner",
+      "cartridge",
+      "snmp",
+      "epson",
+      "hp",
+      "brother",
+      "canon",
+      "kyocera",
+      "lexmark",
+      "ricoh",
+      "oki",
+      "xerox",
+      "samsung"
+    ]
+  },
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
+  },
+  "author": {
+    "name": "DataWeave Labs",
+    "email": "admin@dataweavelabs.com"
+  },
+  "support": "mailto:admin@dataweavelabs.com",
+  "esm": true,
+  "flow": {
+    "triggers": [
+      {
+        "id": "supply_low",
+        "title": {
+          "en": "A supply runs low",
+          "fr": "Un consommable devient bas",
+          "nl": "Een verbruiksartikel raakt op"
+        },
+        "hint": {
+          "en": "Fires once when a cartridge or tank crosses the threshold set in the device settings, not on every check.",
+          "fr": "Se déclenche une fois quand une cartouche ou un réservoir passe sous le seuil défini dans les réglages de l’appareil, pas à chaque relevé.",
+          "nl": "Wordt eenmalig geactiveerd wanneer een cartridge of tank onder de drempel uit de apparaatinstellingen zakt, niet bij elke meting."
+        },
+        "tokens": [
+          {
+            "name": "supply",
+            "type": "string",
+            "title": {
+              "en": "Supply",
+              "fr": "Consommable",
+              "nl": "Verbruiksartikel"
+            },
+            "example": {
+              "en": "Black Ink Cartridge 202/202XL"
+            }
+          },
+          {
+            "name": "level",
+            "type": "number",
+            "title": {
+              "en": "Level",
+              "fr": "Niveau",
+              "nl": "Niveau"
+            },
+            "example": {
+              "en": "12"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=printer"
+          }
+        ]
+      },
+      {
+        "id": "status_changed",
+        "title": {
+          "en": "The status changes",
+          "fr": "L’état change",
+          "nl": "De status verandert"
+        },
+        "titleFormatted": {
+          "en": "The status changes to [[status]]",
+          "fr": "L’état passe à [[status]]",
+          "nl": "De status verandert naar [[status]]"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=printer"
+          },
+          {
+            "name": "status",
+            "type": "dropdown",
+            "title": {
+              "en": "Status",
+              "fr": "État",
+              "nl": "Status"
+            },
+            "values": [
+              {
+                "id": "any",
+                "title": {
+                  "en": "any status",
+                  "fr": "n’importe quel état",
+                  "nl": "elke status"
+                }
+              },
+              {
+                "id": "idle",
+                "title": {
+                  "en": "Ready",
+                  "fr": "Prête",
+                  "nl": "Gereed"
+                }
+              },
+              {
+                "id": "printing",
+                "title": {
+                  "en": "Printing",
+                  "fr": "Impression",
+                  "nl": "Bezig met afdrukken"
+                }
+              },
+              {
+                "id": "warmup",
+                "title": {
+                  "en": "Warming up",
+                  "fr": "Préchauffage",
+                  "nl": "Opwarmen"
+                }
+              },
+              {
+                "id": "offline",
+                "title": {
+                  "en": "Offline",
+                  "fr": "Hors ligne",
+                  "nl": "Offline"
+                }
+              }
+            ]
+          }
+        ],
+        "tokens": [
+          {
+            "name": "status",
+            "type": "string",
+            "title": {
+              "en": "Status",
+              "fr": "État",
+              "nl": "Status"
+            },
+            "example": {
+              "en": "printing"
+            }
+          }
+        ]
+      },
+      {
+        "id": "pages_printed",
+        "title": {
+          "en": "Pages have been printed",
+          "fr": "Des pages ont été imprimées",
+          "nl": "Er zijn pagina's afgedrukt"
+        },
+        "tokens": [
+          {
+            "name": "pages",
+            "type": "number",
+            "title": {
+              "en": "Pages since last check",
+              "fr": "Pages depuis le dernier relevé",
+              "nl": "Pagina's sinds laatste meting"
+            },
+            "example": {
+              "en": "3"
+            }
+          },
+          {
+            "name": "total",
+            "type": "number",
+            "title": {
+              "en": "Lifetime total",
+              "fr": "Total depuis l’origine",
+              "nl": "Totaal sinds ingebruikname"
+            },
+            "example": {
+              "en": "1116"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=printer"
+          }
+        ]
+      },
+      {
+        "id": "printer_error",
+        "title": {
+          "en": "The printer reports an error",
+          "fr": "L’imprimante signale une erreur",
+          "nl": "De printer meldt een fout"
+        },
+        "hint": {
+          "en": "Covers errors that stop printing: paper jam, out of paper, open cover, missing cartridge. Low-supply warnings have their own card.",
+          "fr": "Couvre les erreurs qui bloquent l’impression : bourrage, plus de papier, capot ouvert, cartouche absente. Les alertes de niveau bas ont leur propre carte.",
+          "nl": "Dekt fouten die het afdrukken stoppen: papierstoring, papier op, klep open, ontbrekende cartridge. Waarschuwingen over lage niveaus hebben hun eigen kaart."
+        },
+        "tokens": [
+          {
+            "name": "errors",
+            "type": "string",
+            "title": {
+              "en": "Errors",
+              "fr": "Erreurs",
+              "nl": "Fouten"
+            },
+            "example": {
+              "en": "jammed, doorOpen"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=printer"
+          }
+        ]
+      }
+    ],
+    "conditions": [
+      {
+        "id": "supply_below",
+        "title": {
+          "en": "A supply is !{{below|not below}} a level",
+          "fr": "Un consommable est !{{en dessous|au-dessus}} d’un niveau",
+          "nl": "Een verbruiksartikel is !{{onder|niet onder}} een niveau"
+        },
+        "titleFormatted": {
+          "en": "[[capability]] is !{{below|not below}} [[level]] %",
+          "fr": "[[capability]] est !{{en dessous de|au-dessus de}} [[level]] %",
+          "nl": "[[capability]] is !{{onder|niet onder}} [[level]] %"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=printer"
+          },
+          {
+            "name": "capability",
+            "type": "autocomplete",
+            "title": {
+              "en": "Supply",
+              "fr": "Consommable",
+              "nl": "Verbruiksartikel"
+            }
+          },
+          {
+            "name": "level",
+            "type": "number",
+            "title": {
+              "en": "Level",
+              "fr": "Niveau",
+              "nl": "Niveau"
+            },
+            "min": 0,
+            "max": 100,
+            "step": 1
+          }
+        ]
+      }
+    ],
+    "actions": [
+      {
+        "id": "refresh_printer",
+        "title": {
+          "en": "Read the printer now",
+          "fr": "Relever l’imprimante maintenant",
+          "nl": "De printer nu uitlezen"
+        },
+        "hint": {
+          "en": "Polls immediately instead of waiting for the next scheduled check. Useful right after a print job.",
+          "fr": "Interroge l’imprimante immédiatement au lieu d’attendre le prochain relevé. Utile juste après une impression.",
+          "nl": "Leest direct uit in plaats van te wachten op de volgende meting. Handig vlak na een afdruktaak."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=printer"
+          }
+        ]
+      }
+    ]
+  },
+  "drivers": [
+    {
+      "name": {
+        "en": "Printer",
+        "fr": "Imprimante",
+        "nl": "Printer"
+      },
+      "class": "sensor",
+      "capabilities": [
+        "printer_status",
+        "alarm_supply_low",
+        "alarm_printer_error"
+      ],
+      "platforms": [
+        "local"
+      ],
+      "connectivity": [
+        "lan"
+      ],
+      "images": {
+        "small": "/drivers/printer/assets/images/small.png",
+        "large": "/drivers/printer/assets/images/large.png",
+        "xlarge": "/drivers/printer/assets/images/xlarge.png"
+      },
+      "pair": [
+        {
+          "id": "configure"
+        },
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": {
+            "next": "add_devices"
+          }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ],
+      "repair": [
+        {
+          "id": "configure"
+        }
+      ],
+      "id": "printer",
+      "settings": [
+        {
+          "type": "group",
+          "label": {
+            "en": "Connection",
+            "fr": "Connexion",
+            "nl": "Verbinding"
+          },
+          "children": [
+            {
+              "id": "host",
+              "type": "text",
+              "label": {
+                "en": "IP address",
+                "fr": "Adresse IP",
+                "nl": "IP-adres"
+              },
+              "hint": {
+                "en": "Give the printer a fixed address in your router, or it will move and stop answering.",
+                "fr": "Réservez une adresse fixe pour l’imprimante dans votre routeur, sinon elle changera et ne répondra plus.",
+                "nl": "Geef de printer een vast adres in je router, anders verandert het en reageert hij niet meer."
+              },
+              "value": ""
+            },
+            {
+              "id": "community",
+              "type": "text",
+              "label": {
+                "en": "SNMP community",
+                "fr": "Communauté SNMP",
+                "nl": "SNMP-community"
+              },
+              "hint": {
+                "en": "Almost always \"public\". Change it only if you set a different read community on the printer.",
+                "fr": "Presque toujours « public ». À changer seulement si vous avez défini une autre communauté de lecture sur l’imprimante.",
+                "nl": "Vrijwel altijd \"public\". Wijzig dit alleen als je een andere lees-community op de printer hebt ingesteld."
+              },
+              "value": "public"
+            },
+            {
+              "id": "version",
+              "type": "dropdown",
+              "label": {
+                "en": "SNMP version",
+                "fr": "Version SNMP",
+                "nl": "SNMP-versie"
+              },
+              "hint": {
+                "en": "v2c reports missing values one by one; v1 fails the whole read when the printer lacks a single value. Only fall back to v1 if v2c gets no answer.",
+                "fr": "v2c signale les valeurs absentes une par une ; v1 fait échouer tout le relevé dès qu’une seule valeur manque. Ne passez à v1 que si v2c ne répond pas.",
+                "nl": "v2c meldt ontbrekende waarden afzonderlijk; v1 laat de hele uitlezing mislukken zodra één waarde ontbreekt. Val alleen terug op v1 als v2c niet antwoordt."
+              },
+              "value": "v2c",
+              "values": [
+                {
+                  "id": "v2c",
+                  "label": {
+                    "en": "v2c",
+                    "fr": "v2c",
+                    "nl": "v2c"
+                  }
+                },
+                {
+                  "id": "v1",
+                  "label": {
+                    "en": "v1",
+                    "fr": "v1",
+                    "nl": "v1"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Monitoring",
+            "fr": "Surveillance",
+            "nl": "Bewaking"
+          },
+          "children": [
+            {
+              "id": "poll_interval",
+              "type": "number",
+              "label": {
+                "en": "Check every (seconds)",
+                "fr": "Relever toutes les (secondes)",
+                "nl": "Controleer elke (seconden)"
+              },
+              "hint": {
+                "en": "Ink levels move slowly, so a long interval costs nothing. Below 60 seconds mainly wakes the printer up for no reason.",
+                "fr": "Les niveaux d’encre évoluent lentement : un intervalle long ne coûte rien. En dessous de 60 secondes, on ne fait guère que réveiller l’imprimante pour rien.",
+                "nl": "Inktniveaus veranderen langzaam, dus een lang interval kost niets. Onder de 60 seconden wek je de printer vooral zonder reden."
+              },
+              "value": 300,
+              "min": 30,
+              "max": 86400,
+              "units": {
+                "en": "s"
+              }
+            },
+            {
+              "id": "low_threshold",
+              "type": "number",
+              "label": {
+                "en": "Low-supply threshold",
+                "fr": "Seuil de consommable bas",
+                "nl": "Drempel laag verbruiksartikel"
+              },
+              "hint": {
+                "en": "The alarm and the low-supply Flow card fire at or below this percentage.",
+                "fr": "L’alarme et la carte Flow « consommable bas » se déclenchent à ce pourcentage ou en dessous.",
+                "nl": "Het alarm en de Flow-kaart voor laag verbruik reageren op dit percentage of lager."
+              },
+              "value": 15,
+              "min": 1,
+              "max": 99,
+              "units": {
+                "en": "%"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "capabilities": {
+    "alarm_printer_error": {
+      "type": "boolean",
+      "title": {
+        "en": "Printer error",
+        "fr": "Erreur imprimante",
+        "nl": "Printerfout"
+      },
+      "uiComponent": "sensor",
+      "uiQuickAction": false,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "insightsTitleTrue": {
+        "en": "The printer reported an error",
+        "fr": "L’imprimante signale une erreur",
+        "nl": "De printer meldt een fout"
+      },
+      "insightsTitleFalse": {
+        "en": "The error cleared",
+        "fr": "L’erreur est levée",
+        "nl": "De fout is verholpen"
+      },
+      "icon": "/assets/capability/alarm_printer_error.svg"
+    },
+    "alarm_supply_low": {
+      "type": "boolean",
+      "title": {
+        "en": "Supply low",
+        "fr": "Consommable bas",
+        "nl": "Verbruiksartikel laag"
+      },
+      "uiComponent": "sensor",
+      "uiQuickAction": false,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "insightsTitleTrue": {
+        "en": "A supply ran low",
+        "fr": "Un consommable est bas",
+        "nl": "Een verbruiksartikel is laag"
+      },
+      "insightsTitleFalse": {
+        "en": "Supplies back above the threshold",
+        "fr": "Consommables repassés au-dessus du seuil",
+        "nl": "Verbruiksartikelen weer boven de drempel"
+      },
+      "icon": "/assets/capability/alarm_supply_low.svg"
+    },
+    "printer_message": {
+      "type": "string",
+      "title": {
+        "en": "Panel message",
+        "fr": "Message du panneau",
+        "nl": "Displaybericht"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": false,
+      "icon": "/assets/capability/printer_message.svg"
+    },
+    "printer_pages": {
+      "type": "number",
+      "title": {
+        "en": "Pages printed",
+        "fr": "Pages imprimées",
+        "nl": "Afgedrukte pagina's"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "pages",
+        "fr": "pages",
+        "nl": "pagina's"
+      },
+      "min": 0,
+      "decimals": 0,
+      "icon": "/assets/capability/printer_pages.svg"
+    },
+    "printer_status": {
+      "type": "enum",
+      "title": {
+        "en": "Status",
+        "fr": "État",
+        "nl": "Status"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": false,
+      "icon": "/assets/capability/printer_status.svg",
+      "values": [
+        {
+          "id": "idle",
+          "title": {
+            "en": "Ready",
+            "fr": "Prête",
+            "nl": "Gereed"
+          }
+        },
+        {
+          "id": "printing",
+          "title": {
+            "en": "Printing",
+            "fr": "Impression",
+            "nl": "Bezig met afdrukken"
+          }
+        },
+        {
+          "id": "warmup",
+          "title": {
+            "en": "Warming up",
+            "fr": "Préchauffage",
+            "nl": "Opwarmen"
+          }
+        },
+        {
+          "id": "offline",
+          "title": {
+            "en": "Offline",
+            "fr": "Hors ligne",
+            "nl": "Offline"
+          }
+        },
+        {
+          "id": "other",
+          "title": {
+            "en": "Other",
+            "fr": "Autre",
+            "nl": "Anders"
+          }
+        },
+        {
+          "id": "unknown",
+          "title": {
+            "en": "Unknown",
+            "fr": "Inconnu",
+            "nl": "Onbekend"
+          }
+        }
+      ]
+    },
+    "supply_black": {
+      "type": "number",
+      "title": {
+        "en": "Black",
+        "fr": "Noir",
+        "nl": "Zwart"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_blue": {
+      "type": "number",
+      "title": {
+        "en": "Blue",
+        "fr": "Bleu",
+        "nl": "Blauw"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_cyan": {
+      "type": "number",
+      "title": {
+        "en": "Cyan",
+        "fr": "Cyan",
+        "nl": "Cyaan"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_green": {
+      "type": "number",
+      "title": {
+        "en": "Green",
+        "fr": "Vert",
+        "nl": "Groen"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_grey": {
+      "type": "number",
+      "title": {
+        "en": "Grey",
+        "fr": "Gris",
+        "nl": "Grijs"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_light_cyan": {
+      "type": "number",
+      "title": {
+        "en": "Light cyan",
+        "fr": "Cyan clair",
+        "nl": "Lichtcyaan"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_light_magenta": {
+      "type": "number",
+      "title": {
+        "en": "Light magenta",
+        "fr": "Magenta clair",
+        "nl": "Lichtmagenta"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_magenta": {
+      "type": "number",
+      "title": {
+        "en": "Magenta",
+        "fr": "Magenta",
+        "nl": "Magenta"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_matte_black": {
+      "type": "number",
+      "title": {
+        "en": "Matte black",
+        "fr": "Noir mat",
+        "nl": "Mat zwart"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_orange": {
+      "type": "number",
+      "title": {
+        "en": "Orange",
+        "fr": "Orange",
+        "nl": "Oranje"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_other_1": {
+      "type": "number",
+      "title": {
+        "en": "Supply 1",
+        "fr": "Consommable 1",
+        "nl": "Verbruiksartikel 1"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_2": {
+      "type": "number",
+      "title": {
+        "en": "Supply 2",
+        "fr": "Consommable 2",
+        "nl": "Verbruiksartikel 2"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_3": {
+      "type": "number",
+      "title": {
+        "en": "Supply 3",
+        "fr": "Consommable 3",
+        "nl": "Verbruiksartikel 3"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_4": {
+      "type": "number",
+      "title": {
+        "en": "Supply 4",
+        "fr": "Consommable 4",
+        "nl": "Verbruiksartikel 4"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_photo_black": {
+      "type": "number",
+      "title": {
+        "en": "Photo black",
+        "fr": "Noir photo",
+        "nl": "Fotozwart"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_red": {
+      "type": "number",
+      "title": {
+        "en": "Red",
+        "fr": "Rouge",
+        "nl": "Rood"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_waste": {
+      "type": "number",
+      "title": {
+        "en": "Waste tank",
+        "fr": "Réservoir d’encre usée",
+        "nl": "Afvalreservoir"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_waste.svg"
+    },
+    "supply_yellow": {
+      "type": "number",
+      "title": {
+        "en": "Yellow",
+        "fr": "Jaune",
+        "nl": "Geel"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    }
+  }
+}

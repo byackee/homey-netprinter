@@ -1,0 +1,18 @@
+{
+  "device": {
+    "unreachable": "L’imprimante ne répond plus sur le réseau. Vérifiez qu’elle est allumée et que son adresse IP n’a pas changé."
+  },
+  "pair": {
+    "title": "Trouvez votre imprimante",
+    "intro": "Saisissez l’adresse IP de l’imprimante. Elle doit être sur le même réseau que Homey, et le SNMP doit être activé — il l’est par défaut sur la quasi-totalité des imprimantes réseau.",
+    "host": "Adresse IP",
+    "community": "Communauté SNMP",
+    "test": "Tester la connexion",
+    "testing": "Contact de l’imprimante…",
+    "continue": "Continuer",
+    "found": "Trouvée",
+    "supplies_found": "consommables détectés",
+    "error_no_host": "Saisissez l’adresse IP de l’imprimante.",
+    "error_unreachable": "Aucune réponse SNMP à cette adresse. Vérifiez l’IP et que le SNMP est activé sur l’imprimante."
+  }
+}

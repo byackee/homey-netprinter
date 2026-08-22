@@ -1,0 +1,154 @@
+{
+  "triggers": [
+    {
+      "id": "supply_low",
+      "title": {
+        "en": "A supply runs low",
+        "fr": "Un consommable devient bas",
+        "nl": "Een verbruiksartikel raakt op"
+      },
+      "hint": {
+        "en": "Fires once when a cartridge or tank crosses the threshold set in the device settings, not on every check.",
+        "fr": "Se déclenche une fois quand une cartouche ou un réservoir passe sous le seuil défini dans les réglages de l’appareil, pas à chaque relevé.",
+        "nl": "Wordt eenmalig geactiveerd wanneer een cartridge of tank onder de drempel uit de apparaatinstellingen zakt, niet bij elke meting."
+      },
+      "tokens": [
+        {
+          "name": "supply",
+          "type": "string",
+          "title": { "en": "Supply", "fr": "Consommable", "nl": "Verbruiksartikel" },
+          "example": { "en": "Black Ink Cartridge 202/202XL" }
+        },
+        {
+          "name": "level",
+          "type": "number",
+          "title": { "en": "Level", "fr": "Niveau", "nl": "Niveau" },
+          "example": { "en": "12" }
+        }
+      ]
+    },
+    {
+      "id": "status_changed",
+      "title": {
+        "en": "The status changes",
+        "fr": "L’état change",
+        "nl": "De status verandert"
+      },
+      "titleFormatted": {
+        "en": "The status changes to [[status]]",
+        "fr": "L’état passe à [[status]]",
+        "nl": "De status verandert naar [[status]]"
+      },
+      "args": [
+        {
+          "name": "status",
+          "type": "dropdown",
+          "title": { "en": "Status", "fr": "État", "nl": "Status" },
+          "values": [
+            { "id": "any", "title": { "en": "any status", "fr": "n’importe quel état", "nl": "elke status" } },
+            { "id": "idle", "title": { "en": "Ready", "fr": "Prête", "nl": "Gereed" } },
+            { "id": "printing", "title": { "en": "Printing", "fr": "Impression", "nl": "Bezig met afdrukken" } },
+            { "id": "warmup", "title": { "en": "Warming up", "fr": "Préchauffage", "nl": "Opwarmen" } },
+            { "id": "offline", "title": { "en": "Offline", "fr": "Hors ligne", "nl": "Offline" } }
+          ]
+        }
+      ],
+      "tokens": [
+        {
+          "name": "status",
+          "type": "string",
+          "title": { "en": "Status", "fr": "État", "nl": "Status" },
+          "example": { "en": "printing" }
+        }
+      ]
+    },
+    {
+      "id": "pages_printed",
+      "title": {
+        "en": "Pages have been printed",
+        "fr": "Des pages ont été imprimées",
+        "nl": "Er zijn pagina's afgedrukt"
+      },
+      "tokens": [
+        {
+          "name": "pages",
+          "type": "number",
+          "title": { "en": "Pages since last check", "fr": "Pages depuis le dernier relevé", "nl": "Pagina's sinds laatste meting" },
+          "example": { "en": "3" }
+        },
+        {
+          "name": "total",
+          "type": "number",
+          "title": { "en": "Lifetime total", "fr": "Total depuis l’origine", "nl": "Totaal sinds ingebruikname" },
+          "example": { "en": "1116" }
+        }
+      ]
+    },
+    {
+      "id": "printer_error",
+      "title": {
+        "en": "The printer reports an error",
+        "fr": "L’imprimante signale une erreur",
+        "nl": "De printer meldt een fout"
+      },
+      "hint": {
+        "en": "Covers errors that stop printing: paper jam, out of paper, open cover, missing cartridge. Low-supply warnings have their own card.",
+        "fr": "Couvre les erreurs qui bloquent l’impression : bourrage, plus de papier, capot ouvert, cartouche absente. Les alertes de niveau bas ont leur propre carte.",
+        "nl": "Dekt fouten die het afdrukken stoppen: papierstoring, papier op, klep open, ontbrekende cartridge. Waarschuwingen over lage niveaus hebben hun eigen kaart."
+      },
+      "tokens": [
+        {
+          "name": "errors",
+          "type": "string",
+          "title": { "en": "Errors", "fr": "Erreurs", "nl": "Fouten" },
+          "example": { "en": "jammed, doorOpen" }
+        }
+      ]
+    }
+  ],
+  "conditions": [
+    {
+      "id": "supply_below",
+      "title": {
+        "en": "A supply is !{{below|not below}} a level",
+        "fr": "Un consommable est !{{en dessous|au-dessus}} d’un niveau",
+        "nl": "Een verbruiksartikel is !{{onder|niet onder}} een niveau"
+      },
+      "titleFormatted": {
+        "en": "[[capability]] is !{{below|not below}} [[level]] %",
+        "fr": "[[capability]] est !{{en dessous de|au-dessus de}} [[level]] %",
+        "nl": "[[capability]] is !{{onder|niet onder}} [[level]] %"
+      },
+      "args": [
+        {
+          "name": "capability",
+          "type": "autocomplete",
+          "title": { "en": "Supply", "fr": "Consommable", "nl": "Verbruiksartikel" }
+        },
+        {
+          "name": "level",
+          "type": "number",
+          "title": { "en": "Level", "fr": "Niveau", "nl": "Niveau" },
+          "min": 0,
+          "max": 100,
+          "step": 1
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "refresh_printer",
+      "title": {
+        "en": "Read the printer now",
+        "fr": "Relever l’imprimante maintenant",
+        "nl": "De printer nu uitlezen"
+      },
+      "hint": {
+        "en": "Polls immediately instead of waiting for the next scheduled check. Useful right after a print job.",
+        "fr": "Interroge l’imprimante immédiatement au lieu d’attendre le prochain relevé. Utile juste après une impression.",
+        "nl": "Leest direct uit in plaats van te wachten op de volgende meting. Handig vlak na een afdruktaak."
+      }
+    }
+  ]
+}

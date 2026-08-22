@@ -1,0 +1,18 @@
+{
+  "device": {
+    "unreachable": "De printer reageert niet op het netwerk. Controleer of hij aan staat en of zijn IP-adres nog klopt."
+  },
+  "pair": {
+    "title": "Zoek je printer",
+    "intro": "Voer het IP-adres van de printer in. Hij moet op hetzelfde netwerk als Homey zitten en SNMP moet aan staan — dat is standaard zo bij vrijwel elke netwerkprinter.",
+    "host": "IP-adres",
+    "community": "SNMP-community",
+    "test": "Verbinding testen",
+    "testing": "Contact maken met de printer…",
+    "continue": "Doorgaan",
+    "found": "Gevonden",
+    "supplies_found": "verbruiksartikelen gevonden",
+    "error_no_host": "Voer het IP-adres van de printer in.",
+    "error_unreachable": "Geen SNMP-antwoord op dat adres. Controleer het IP en of SNMP op de printer aan staat."
+  }
+}

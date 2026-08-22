@@ -1,0 +1,9 @@
+{
+  "type": "string",
+  "title": { "en": "Panel message", "fr": "Message du panneau", "nl": "Displaybericht" },
+  "uiComponent": "sensor",
+  "getable": true,
+  "setable": false,
+  "insights": false,
+  "icon": "/assets/capability/printer_message.svg"
+}

@@ -1,0 +1,19 @@
+{
+  "type": "number",
+  "title": {
+    "en": "Light magenta",
+    "fr": "Magenta clair",
+    "nl": "Lichtmagenta"
+  },
+  "uiComponent": "sensor",
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "units": {
+    "en": "%"
+  },
+  "min": 0,
+  "max": 100,
+  "decimals": 0,
+  "icon": "/assets/capability/supply_ink.svg"
+}

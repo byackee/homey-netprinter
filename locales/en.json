@@ -1,0 +1,18 @@
+{
+  "device": {
+    "unreachable": "The printer is not answering on the network. Check that it is powered on and that its IP address is still correct."
+  },
+  "pair": {
+    "title": "Find your printer",
+    "intro": "Enter the printer's IP address. It must be on the same network as Homey, and SNMP must be enabled — it is on by default on almost every network printer.",
+    "host": "IP address",
+    "community": "SNMP community",
+    "test": "Test connection",
+    "testing": "Contacting the printer…",
+    "continue": "Continue",
+    "found": "Found",
+    "supplies_found": "supplies detected",
+    "error_no_host": "Enter the printer's IP address.",
+    "error_unreachable": "No SNMP answer from that address. Check the IP, and that SNMP is enabled on the printer."
+  }
+}

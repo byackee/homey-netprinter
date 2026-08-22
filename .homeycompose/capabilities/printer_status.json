@@ -1,0 +1,17 @@
+{
+  "type": "enum",
+  "title": { "en": "Status", "fr": "État", "nl": "Status" },
+  "uiComponent": "sensor",
+  "getable": true,
+  "setable": false,
+  "insights": false,
+  "icon": "/assets/capability/printer_status.svg",
+  "values": [
+    { "id": "idle", "title": { "en": "Ready", "fr": "Prête", "nl": "Gereed" } },
+    { "id": "printing", "title": { "en": "Printing", "fr": "Impression", "nl": "Bezig met afdrukken" } },
+    { "id": "warmup", "title": { "en": "Warming up", "fr": "Préchauffage", "nl": "Opwarmen" } },
+    { "id": "offline", "title": { "en": "Offline", "fr": "Hors ligne", "nl": "Offline" } },
+    { "id": "other", "title": { "en": "Other", "fr": "Autre", "nl": "Anders" } },
+    { "id": "unknown", "title": { "en": "Unknown", "fr": "Inconnu", "nl": "Onbekend" } }
+  ]
+}

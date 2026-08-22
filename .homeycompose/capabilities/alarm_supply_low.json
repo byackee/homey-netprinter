@@ -1,0 +1,12 @@
+{
+  "type": "boolean",
+  "title": { "en": "Supply low", "fr": "Consommable bas", "nl": "Verbruiksartikel laag" },
+  "uiComponent": "sensor",
+  "uiQuickAction": false,
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "insightsTitleTrue": { "en": "A supply ran low", "fr": "Un consommable est bas", "nl": "Een verbruiksartikel is laag" },
+  "insightsTitleFalse": { "en": "Supplies back above the threshold", "fr": "Consommables repassés au-dessus du seuil", "nl": "Verbruiksartikelen weer boven de drempel" },
+  "icon": "/assets/capability/alarm_supply_low.svg"
+}

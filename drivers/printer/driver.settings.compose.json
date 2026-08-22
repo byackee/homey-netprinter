@@ -1,0 +1,79 @@
+[
+  {
+    "type": "group",
+    "label": { "en": "Connection", "fr": "Connexion", "nl": "Verbinding" },
+    "children": [
+      {
+        "id": "host",
+        "type": "text",
+        "label": { "en": "IP address", "fr": "Adresse IP", "nl": "IP-adres" },
+        "hint": {
+          "en": "Give the printer a fixed address in your router, or it will move and stop answering.",
+          "fr": "Réservez une adresse fixe pour l’imprimante dans votre routeur, sinon elle changera et ne répondra plus.",
+          "nl": "Geef de printer een vast adres in je router, anders verandert het en reageert hij niet meer."
+        },
+        "value": ""
+      },
+      {
+        "id": "community",
+        "type": "text",
+        "label": { "en": "SNMP community", "fr": "Communauté SNMP", "nl": "SNMP-community" },
+        "hint": {
+          "en": "Almost always \"public\". Change it only if you set a different read community on the printer.",
+          "fr": "Presque toujours « public ». À changer seulement si vous avez défini une autre communauté de lecture sur l’imprimante.",
+          "nl": "Vrijwel altijd \"public\". Wijzig dit alleen als je een andere lees-community op de printer hebt ingesteld."
+        },
+        "value": "public"
+      },
+      {
+        "id": "version",
+        "type": "dropdown",
+        "label": { "en": "SNMP version", "fr": "Version SNMP", "nl": "SNMP-versie" },
+        "hint": {
+          "en": "v2c reports missing values one by one; v1 fails the whole read when the printer lacks a single value. Only fall back to v1 if v2c gets no answer.",
+          "fr": "v2c signale les valeurs absentes une par une ; v1 fait échouer tout le relevé dès qu’une seule valeur manque. Ne passez à v1 que si v2c ne répond pas.",
+          "nl": "v2c meldt ontbrekende waarden afzonderlijk; v1 laat de hele uitlezing mislukken zodra één waarde ontbreekt. Val alleen terug op v1 als v2c niet antwoordt."
+        },
+        "value": "v2c",
+        "values": [
+          { "id": "v2c", "label": { "en": "v2c", "fr": "v2c", "nl": "v2c" } },
+          { "id": "v1", "label": { "en": "v1", "fr": "v1", "nl": "v1" } }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "group",
+    "label": { "en": "Monitoring", "fr": "Surveillance", "nl": "Bewaking" },
+    "children": [
+      {
+        "id": "poll_interval",
+        "type": "number",
+        "label": { "en": "Check every (seconds)", "fr": "Relever toutes les (secondes)", "nl": "Controleer elke (seconden)" },
+        "hint": {
+          "en": "Ink levels move slowly, so a long interval costs nothing. Below 60 seconds mainly wakes the printer up for no reason.",
+          "fr": "Les niveaux d’encre évoluent lentement : un intervalle long ne coûte rien. En dessous de 60 secondes, on ne fait guère que réveiller l’imprimante pour rien.",
+          "nl": "Inktniveaus veranderen langzaam, dus een lang interval kost niets. Onder de 60 seconden wek je de printer vooral zonder reden."
+        },
+        "value": 300,
+        "min": 30,
+        "max": 86400,
+        "units": { "en": "s" }
+      },
+      {
+        "id": "low_threshold",
+        "type": "number",
+        "label": { "en": "Low-supply threshold", "fr": "Seuil de consommable bas", "nl": "Drempel laag verbruiksartikel" },
+        "hint": {
+          "en": "The alarm and the low-supply Flow card fire at or below this percentage.",
+          "fr": "L’alarme et la carte Flow « consommable bas » se déclenchent à ce pourcentage ou en dessous.",
+          "nl": "Het alarm en de Flow-kaart voor laag verbruik reageren op dit percentage of lager."
+        },
+        "value": 15,
+        "min": 1,
+        "max": 99,
+        "units": { "en": "%" }
+      }
+    ]
+  }
+]

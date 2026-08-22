@@ -1,0 +1,34 @@
+{
+  "id": "com.dataweavelabs.netprinter",
+  "version": "1.0.0",
+  "compatibility": ">=12.0.1",
+  "sdk": 3,
+  "platforms": ["local"],
+  "brandColor": "#1B6AC9",
+  "name": {
+    "en": "Network Printer",
+    "fr": "Imprimante réseau",
+    "nl": "Netwerkprinter"
+  },
+  "description": {
+    "en": "Ink, toner and status for any network printer",
+    "fr": "Encre, toner et état de toute imprimante réseau",
+    "nl": "Inkt, toner en status van elke netwerkprinter"
+  },
+  "category": ["tools"],
+  "tags": {
+    "en": ["printer", "ink", "toner", "cartridge", "snmp", "epson", "hp", "brother", "canon", "kyocera", "lexmark", "ricoh", "oki", "xerox", "samsung"],
+    "fr": ["imprimante", "encre", "toner", "cartouche", "snmp", "epson", "hp", "brother", "canon", "kyocera", "lexmark", "ricoh", "oki", "xerox", "samsung"],
+    "nl": ["printer", "inkt", "toner", "cartridge", "snmp", "epson", "hp", "brother", "canon", "kyocera", "lexmark", "ricoh", "oki", "xerox", "samsung"]
+  },
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
+  },
+  "author": {
+    "name": "DataWeave Labs",
+    "email": "admin@dataweavelabs.com"
+  },
+  "support": "mailto:admin@dataweavelabs.com"
+}

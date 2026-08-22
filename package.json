@@ -1,0 +1,31 @@
+{
+  "name": "com.dataweavelabs.netprinter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "app.mjs",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test \".testbuild/test/*.test.mjs\"",
+    "validate": "homey app validate --level debug",
+    "validate:publish": "homey app validate --level publish",
+    "app:run": "homey app run",
+    "gen:images": "node tools/build-images.mjs",
+    "gen:capabilities": "node tools/generate-capabilities.mjs",
+    "app:install": "homey app install"
+  },
+  "dependencies": {
+    "net-snmp": "^3.26.3",
+    "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "@types/homey": "npm:homey-apps-sdk-v3-types@^0.3.12",
+    "@types/net-snmp": "^3.23.0",
+    "@types/node": "^22.10.0",
+    "@types/source-map-support": "^0.5.10",
+    "homey": "^4.4.2",
+    "sharp": "^0.35.3",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,8 @@
+node_modules/
+.homeybuild/
+env.json
+*.tgz
+.DS_Store
+.testbuild/
+.omc/
+.toolsbuild/

@@ -1,0 +1,12 @@
+{
+  "type": "boolean",
+  "title": { "en": "Printer error", "fr": "Erreur imprimante", "nl": "Printerfout" },
+  "uiComponent": "sensor",
+  "uiQuickAction": false,
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "insightsTitleTrue": { "en": "The printer reported an error", "fr": "L’imprimante signale une erreur", "nl": "De printer meldt een fout" },
+  "insightsTitleFalse": { "en": "The error cleared", "fr": "L’erreur est levée", "nl": "De fout is verholpen" },
+  "icon": "/assets/capability/alarm_printer_error.svg"
+}

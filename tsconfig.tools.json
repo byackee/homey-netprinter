@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "outDir": ".toolsbuild/", "rootDir": "." },
+  "include": ["lib/**/*.mts", "tools/**/*.mts"]
+}

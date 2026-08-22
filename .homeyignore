@@ -1,0 +1,5 @@
+test/
+tools/
+.testbuild/
+.omc/
+tsconfig.test.json

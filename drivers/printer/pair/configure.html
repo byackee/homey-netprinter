@@ -1,0 +1,101 @@
+<script type="text/javascript" src="/homey.js" data-origin="pair"></script>
+
+<style>
+  .intro { color: var(--homey-text-color-light); margin-bottom: 1.25rem; line-height: 1.45; }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; margin-bottom: .35rem; font-weight: 600; }
+  .field input {
+    width: 100%; box-sizing: border-box; padding: .6rem .7rem;
+    border: 1px solid var(--homey-line-color); border-radius: var(--homey-border-radius-small, 6px);
+    font-size: 1rem; background: var(--homey-background-color); color: var(--homey-text-color);
+  }
+  .result { margin-top: 1rem; padding: .8rem .9rem; border-radius: 6px; line-height: 1.45; }
+  .result.ok { background: rgba(46, 160, 67, .12); }
+  .result.bad { background: rgba(218, 54, 51, .12); }
+  .result .model { font-weight: 600; }
+  .result .detail { color: var(--homey-text-color-light); font-size: .9rem; }
+  .hidden { display: none; }
+</style>
+
+<h1 data-i18n="pair.title"></h1>
+<p class="intro" data-i18n="pair.intro"></p>
+
+<div class="field">
+  <label for="host" data-i18n="pair.host"></label>
+  <input type="text" id="host" inputmode="decimal" autocomplete="off" placeholder="192.168.1.50">
+</div>
+
+<div class="field">
+  <label for="community" data-i18n="pair.community"></label>
+  <input type="text" id="community" autocomplete="off" value="public">
+</div>
+
+<div id="result" class="result hidden"></div>
+
+<script type="text/javascript">
+  const hostInput = document.getElementById('host');
+  const communityInput = document.getElementById('community');
+  const result = document.getElementById('result');
+
+  let probing = false;
+
+  function show(className, html) {
+    result.className = `result ${className}`;
+    result.innerHTML = html;
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[c]);
+  }
+
+  async function probe() {
+    if (probing) return;
+    probing = true;
+    Homey.showLoadingOverlay();
+    show('ok', Homey.__('pair.testing'));
+
+    try {
+      const answer = await Homey.emit('probe', {
+        host: hostInput.value.trim(),
+        community: communityInput.value.trim(),
+      });
+
+      if (!answer || !answer.ok) {
+        show('bad', escapeHtml(answer && answer.message ? answer.message : 'Error'));
+        return;
+      }
+
+      const name = [answer.vendor, answer.model].filter(Boolean).join(' ') || answer.serial || '';
+      const bits = [];
+      if (answer.serial) bits.push(escapeHtml(answer.serial));
+      if (typeof answer.supplies === 'number') {
+        bits.push(`${answer.supplies} ${escapeHtml(Homey.__('pair.supplies_found'))}`);
+      }
+      show('ok',
+        `<div class="model">${escapeHtml(Homey.__('pair.found'))} — ${escapeHtml(name)}</div>` +
+        (bits.length ? `<div class="detail">${bits.join(' · ')}</div>` : ''));
+
+      // Navigation belongs to this view. Calling session.showView() from inside
+      // the driver's own showView handler deadlocks: Homey waits for the handler
+      // to return before completing the transition, and the handler waits for
+      // the transition. Homey.showView() here is not re-entrant.
+      setTimeout(() => Homey.showView('list_devices'), 900);
+    } catch (error) {
+      show('bad', escapeHtml(error && error.message ? error.message : String(error)));
+    } finally {
+      probing = false;
+      Homey.hideLoadingOverlay();
+    }
+  }
+
+  hostInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') probe();
+  });
+
+  Homey.setTitle(Homey.__('pair.title'));
+  Homey.addNavigationButton({ id: 'next', title: Homey.__('pair.test') }, probe);
+
+  Homey.ready();
+</script>
