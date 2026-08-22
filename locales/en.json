@@ -13,6 +13,12 @@
     "found": "Found",
     "supplies_found": "supplies detected",
     "error_no_host": "Enter the printer's IP address.",
-    "error_unreachable": "No SNMP answer from that address. Check the IP, and that SNMP is enabled on the printer."
+    "error_unreachable": "No SNMP answer from that address. Check the IP, and that SNMP is enabled on the printer.",
+    "searching": "Looking for printers on your network…",
+    "none_found": "No printer answered on this network. If yours is on a different subnet, or uses a community other than \"public\", add it by address below.",
+    "manual": "Add by IP address instead",
+    "add": "Add",
+    "repair_title": "Correct the address",
+    "repair_intro": "Enter the printer's current IP address. Use this when the printer moved to a new address and stopped answering."
   }
 }

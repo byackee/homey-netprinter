@@ -2,6 +2,7 @@ import Homey from 'homey';
 
 import { PrinterReader } from '../../lib/printer-reader.mjs';
 import { negotiateVersion, type SnmpVersion } from '../../lib/snmp-client.mjs';
+import { scanSubnet, subnetOf } from '../../lib/network-scan.mjs';
 import { suggestDeviceName, vendorName } from '../../lib/vendors.mjs';
 import type PrinterDevice from './device.mjs';
 
@@ -11,7 +12,16 @@ interface ProbeRequest {
   community?: unknown;
 }
 
-/** What the pairing view shows the user after a successful probe. */
+/** A printer the view can offer the user, and adopt verbatim. */
+interface Candidate {
+  host: string;
+  community: string;
+  version: SnmpVersion;
+  name: string;
+  serial: string | null;
+}
+
+/** What the pairing view shows the user after a successful manual probe. */
 interface ProbeResult {
   ok: boolean;
   message?: string;
@@ -19,15 +29,8 @@ interface ProbeResult {
   vendor?: string | null;
   serial?: string | null;
   supplies?: number;
-}
-
-/** A probe that succeeded, held for the duration of one pairing session. */
-interface Candidate {
-  host: string;
-  community: string;
-  version: SnmpVersion;
-  name: string;
-  serial: string | null;
+  /** Present only when ok — what the view passes straight back to adopt. */
+  printer?: Candidate;
 }
 
 export default class PrinterDriver extends Homey.Driver {
@@ -73,14 +76,65 @@ export default class PrinterDriver extends Homey.Driver {
   /**
    * Runs the pairing session.
    *
-   * Navigation deliberately stays in the pairing view: calling
-   * `session.showView()` from inside the `showView` handler deadlocks, because
-   * Homey waits for the handler to return before completing the transition while
-   * the handler waits for that same transition. The view calls
-   * `Homey.showView('list_devices')` itself once a probe succeeds.
+   * There is exactly one view and no navigation between views, which is what
+   * makes this work at all: a custom view followed by a system template cannot
+   * be navigated into — `Homey.showView()` and `Homey.nextView()` both fail
+   * inside Homey's pairing frontend and leave a blank, unresponsive screen. The
+   * view calls `Homey.createDevice()` itself instead of handing off to
+   * `list_devices`.
    */
   override async onPair(session: Homey.Driver.PairSession): Promise<void> {
-    let candidate: Candidate | null = null;
+    // A script error in a pairing view is invisible otherwise, because an app
+    // installed from the CLI has no readable log anywhere.
+    session.setHandler('viewLog', async (message: unknown) => {
+      this.log(`pair view: ${String(message)}`);
+    });
+
+    // The sweep is started, not awaited. A /24 takes around fifteen seconds, and
+    // holding a single `Homey.emit` open that long risks the frontend timing the
+    // request out and leaving the view stuck on "searching" forever. Results are
+    // pushed to the view as they arrive and a `scan_done` marks the end.
+    session.setHandler('scan', async (): Promise<{ started: boolean }> => {
+      const subnet = await this.localSubnet();
+      if (subnet === null) {
+        this.error('Could not determine the local subnet; offering manual entry only');
+        return { started: false };
+      }
+
+      // Addresses already paired are skipped so the list only offers new printers.
+      const taken = new Set(
+        this.getDevices().map((device) => String(device.getSetting('host') ?? '')),
+      );
+
+      this.log(`Sweeping ${subnet}.0/24 for printers`);
+
+      const emit = (event: string, payload: unknown) => {
+        // The user can close the pairing dialog mid-sweep, which makes every
+        // later emit reject. That is expected, not an error worth logging loudly.
+        session.emit(event, payload).catch(() => {});
+      };
+
+      void scanSubnet(subnet, taken, (printer) => {
+        this.log(`Found ${printer.name} at ${printer.host}`);
+        emit('printer', {
+          host: printer.host,
+          community: 'public',
+          version: 'v2c' as SnmpVersion,
+          name: printer.name,
+          serial: printer.serial,
+        } satisfies Candidate);
+      })
+        .then((found) => {
+          this.log(`Sweep finished, ${found.length} printer(s)`);
+          emit('scan_done', { count: found.length });
+        })
+        .catch((error: Error) => {
+          this.error(`Sweep failed: ${error.message}`);
+          emit('scan_done', { count: 0, error: error.message });
+        });
+
+      return { started: true };
+    });
 
     session.setHandler('probe', async (data: ProbeRequest): Promise<ProbeResult> => {
       const host = String(data.host ?? '').trim();
@@ -90,7 +144,6 @@ export default class PrinterDriver extends Homey.Driver {
 
       const version = await negotiateVersion(host, community);
       if (version === null) {
-        candidate = null;
         return { ok: false, message: this.homey.__('pair.error_unreachable') };
       }
 
@@ -100,50 +153,39 @@ export default class PrinterDriver extends Homey.Driver {
         const snapshot = await reader.read();
         const vendor = vendorName(identity.enterprise);
 
-        candidate = {
-          host,
-          community,
-          version,
-          name: suggestDeviceName(identity.model, vendor, identity.name, host),
-          serial: identity.serial,
-        };
-
         return {
           ok: true,
           model: identity.model,
           vendor,
           serial: identity.serial,
           supplies: snapshot.supplies.length,
+          printer: {
+            host,
+            community,
+            version,
+            name: suggestDeviceName(identity.model, vendor, identity.name, host),
+            serial: identity.serial,
+          },
         };
       } catch (error) {
-        candidate = null;
         return { ok: false, message: (error as Error).message };
       }
     });
+  }
 
-    session.setHandler('list_devices', async () => {
-      if (candidate === null) return [];
-
-      // A pairing result may only carry name, data, store, settings, icon,
-      // capabilities and capabilitiesOptions. Homey rejects an entry with any
-      // other key by returning an empty list, with no error anywhere — and the
-      // SDK types this as any[], so the compiler cannot catch it either.
-      return [{
-        name: candidate.name,
-        data: {
-          // The serial survives a DHCP lease change; the address does not, so it
-          // is only the identity of last resort.
-          id: candidate.serial ?? `host:${candidate.host}`,
-        },
-        settings: {
-          host: candidate.host,
-          community: candidate.community,
-          version: candidate.version,
-          poll_interval: 300,
-          low_threshold: 15,
-        },
-      }];
-    });
+  /**
+   * The /24 the Homey itself sits on, which is the only subnet a sweep can reach.
+   *
+   * `getLocalAddress()` returns something like "192.168.50.251:80".
+   */
+  private async localSubnet(): Promise<string | null> {
+    try {
+      const address = await this.homey.cloud.getLocalAddress();
+      return subnetOf(String(address));
+    } catch (error) {
+      this.error(`Could not read the local address: ${(error as Error).message}`);
+      return null;
+    }
   }
 
   /** Repair re-runs the same probe so a printer that moved address can be pointed at again. */

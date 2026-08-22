@@ -1,9 +1,21 @@
 {
-  "name": { "en": "Printer", "fr": "Imprimante", "nl": "Printer" },
+  "name": {
+    "en": "Printer",
+    "fr": "Imprimante",
+    "nl": "Printer"
+  },
   "class": "sensor",
-  "capabilities": ["printer_status", "alarm_supply_low", "alarm_printer_error"],
-  "platforms": ["local"],
-  "connectivity": ["lan"],
+  "capabilities": [
+    "printer_status",
+    "alarm_supply_low",
+    "alarm_printer_error"
+  ],
+  "platforms": [
+    "local"
+  ],
+  "connectivity": [
+    "lan"
+  ],
   "images": {
     "small": "/drivers/printer/assets/images/small.png",
     "large": "/drivers/printer/assets/images/large.png",
@@ -11,16 +23,7 @@
   },
   "pair": [
     {
-      "id": "configure"
-    },
-    {
-      "id": "list_devices",
-      "template": "list_devices",
-      "navigation": { "next": "add_devices" }
-    },
-    {
-      "id": "add_devices",
-      "template": "add_devices"
+      "id": "start"
     }
   ],
   "repair": [

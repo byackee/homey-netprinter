@@ -1,0 +1,184 @@
+<script type="text/javascript" src="/homey.js" data-origin="pair"></script>
+
+<style>
+  .intro { color: var(--homey-text-color-light); margin-bottom: 1rem; line-height: 1.45; }
+  .row {
+    display: flex; align-items: center; gap: .75rem;
+    width: 100%; box-sizing: border-box; text-align: left;
+    padding: .75rem .85rem; margin-bottom: .5rem;
+    border: 1px solid var(--homey-line-color); border-radius: 8px;
+    background: var(--homey-background-color); color: var(--homey-text-color);
+    font: inherit; cursor: pointer;
+  }
+  .row:hover { border-color: var(--homey-color-blue, #1B6AC9); }
+  .row:disabled { opacity: .55; cursor: default; }
+  .row .name { font-weight: 600; }
+  .row .meta { color: var(--homey-text-color-light); font-size: .85rem; }
+  .row .grow { flex: 1; min-width: 0; }
+  .row .name, .row .meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status { margin: 1rem 0; color: var(--homey-text-color-light); line-height: 1.45; }
+  .status.bad { color: var(--homey-color-red, #da3633); }
+  .manual { margin-top: 1.5rem; border-top: 1px solid var(--homey-line-color); padding-top: 1rem; }
+  .manual summary { cursor: pointer; color: var(--homey-text-color-light); }
+  .manual .fields { display: flex; gap: .5rem; margin-top: .75rem; }
+  .manual input {
+    flex: 1; min-width: 0; padding: .55rem .65rem; font-size: 1rem;
+    border: 1px solid var(--homey-line-color); border-radius: 6px;
+    background: var(--homey-background-color); color: var(--homey-text-color);
+  }
+  .manual button {
+    padding: .55rem 1rem; border-radius: 6px; border: 0; cursor: pointer;
+    background: var(--homey-color-blue, #1B6AC9); color: #fff; font: inherit;
+  }
+  .hidden { display: none; }
+</style>
+
+<h1 data-i18n="pair.title"></h1>
+<p class="intro" data-i18n="pair.intro"></p>
+
+<div id="status" class="status"></div>
+<div id="list"></div>
+
+<details class="manual">
+  <summary data-i18n="pair.manual"></summary>
+  <div class="fields">
+    <input type="text" id="host" inputmode="decimal" autocomplete="off" placeholder="192.168.1.50">
+    <input type="text" id="community" autocomplete="off" value="public" style="max-width:9rem">
+    <button type="button" id="add" data-i18n="pair.add"></button>
+  </div>
+</details>
+
+<script type="text/javascript">
+  /*
+   * The whole pairing happens in this one view, on purpose.
+   *
+   * A custom view followed by a system template cannot be navigated into: both
+   * Homey.showView() and Homey.nextView() fail inside Homey's pairing frontend
+   * and leave a blank, unresponsive screen. So there is no second view — this one
+   * calls Homey.createDevice() directly and then Homey.done().
+   */
+  const statusEl = document.getElementById('status');
+  const listEl = document.getElementById('list');
+  const hostEl = document.getElementById('host');
+  const communityEl = document.getElementById('community');
+  const addEl = document.getElementById('add');
+
+  let busy = false;
+
+  // A script error in a pairing view is otherwise invisible, because an app
+  // installed from the CLI has no readable log. The driver records these.
+  function report(message) {
+    try { Homey.emit('viewLog', String(message)); } catch (e) { /* nothing we can do */ }
+  }
+  window.addEventListener('error', (event) => report('view error: ' + event.message));
+
+  function setStatus(text, bad) {
+    statusEl.textContent = text;
+    statusEl.className = bad ? 'status bad' : 'status';
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[c]);
+  }
+
+  async function adopt(printer) {
+    if (busy) return;
+    busy = true;
+    Homey.showLoadingOverlay();
+
+    try {
+      await Homey.createDevice({
+        name: printer.name,
+        data: { id: printer.serial || ('host:' + printer.host) },
+        settings: {
+          host: printer.host,
+          community: printer.community || 'public',
+          version: printer.version || 'v2c',
+          poll_interval: 300,
+          low_threshold: 15,
+        },
+      });
+      Homey.done();
+    } catch (error) {
+      report('createDevice failed: ' + (error && error.message));
+      setStatus((error && error.message) || String(error), true);
+      busy = false;
+      Homey.hideLoadingOverlay();
+    }
+  }
+
+  function render(printers) {
+    listEl.innerHTML = '';
+    for (const printer of printers) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'row';
+      const meta = [printer.host, printer.serial].filter(Boolean).join(' · ');
+      button.innerHTML =
+        '<div class="grow">' +
+          '<div class="name">' + escapeHtml(printer.name) + '</div>' +
+          '<div class="meta">' + escapeHtml(meta) + '</div>' +
+        '</div>';
+      button.addEventListener('click', () => adopt(printer));
+      listEl.appendChild(button);
+    }
+  }
+
+  // Results stream in one at a time rather than arriving as one list, because a
+  // /24 sweep outlasts what the pairing frontend will hold a request open for.
+  const printers = [];
+
+  Homey.on('printer', (printer) => {
+    printers.push(printer);
+    setStatus('');
+    render(printers);
+  });
+
+  Homey.on('scan_done', (result) => {
+    if (printers.length === 0) setStatus(Homey.__('pair.none_found'));
+    if (result && result.error) report('sweep error: ' + result.error);
+  });
+
+  async function sweep() {
+    setStatus(Homey.__('pair.searching'));
+    try {
+      const answer = await Homey.emit('scan', null);
+      if (!answer || !answer.started) setStatus(Homey.__('pair.none_found'));
+    } catch (error) {
+      report('scan failed: ' + (error && error.message));
+      setStatus((error && error.message) || String(error), true);
+    }
+  }
+
+  async function addManually() {
+    const host = hostEl.value.trim();
+    if (!host) return;
+
+    addEl.disabled = true;
+    setStatus(Homey.__('pair.testing'));
+    try {
+      const answer = await Homey.emit('probe', { host, community: communityEl.value.trim() });
+      if (!answer || !answer.ok) {
+        setStatus((answer && answer.message) || 'Error', true);
+        return;
+      }
+      setStatus('');
+      await adopt(answer.printer);
+    } catch (error) {
+      setStatus((error && error.message) || String(error), true);
+    } finally {
+      addEl.disabled = false;
+    }
+  }
+
+  addEl.addEventListener('click', addManually);
+  hostEl.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') addManually();
+  });
+
+  Homey.setTitle(Homey.__('pair.title'));
+  Homey.ready();
+  sweep();
+</script>

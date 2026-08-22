@@ -13,6 +13,12 @@
     "found": "Gevonden",
     "supplies_found": "verbruiksartikelen gevonden",
     "error_no_host": "Voer het IP-adres van de printer in.",
-    "error_unreachable": "Geen SNMP-antwoord op dat adres. Controleer het IP en of SNMP op de printer aan staat."
+    "error_unreachable": "Geen SNMP-antwoord op dat adres. Controleer het IP en of SNMP op de printer aan staat.",
+    "searching": "Printers zoeken op je netwerk…",
+    "none_found": "Geen printer heeft geantwoord op dit netwerk. Staat de jouwe op een ander subnet, of gebruikt hij een andere community dan \"public\", voeg hem hieronder toe op adres.",
+    "manual": "Toevoegen via IP-adres",
+    "add": "Toevoegen",
+    "repair_title": "Adres corrigeren",
+    "repair_intro": "Voer het huidige IP-adres van de printer in. Gebruik dit wanneer de printer een ander adres heeft gekregen en niet meer antwoordt."
   }
 }

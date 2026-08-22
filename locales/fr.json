@@ -13,6 +13,12 @@
     "found": "Trouvée",
     "supplies_found": "consommables détectés",
     "error_no_host": "Saisissez l’adresse IP de l’imprimante.",
-    "error_unreachable": "Aucune réponse SNMP à cette adresse. Vérifiez l’IP et que le SNMP est activé sur l’imprimante."
+    "error_unreachable": "Aucune réponse SNMP à cette adresse. Vérifiez l’IP et que le SNMP est activé sur l’imprimante.",
+    "searching": "Recherche d’imprimantes sur votre réseau…",
+    "none_found": "Aucune imprimante n’a répondu sur ce réseau. Si la vôtre est sur un autre sous-réseau, ou utilise une communauté autre que « public », ajoutez-la par adresse ci-dessous.",
+    "manual": "Ajouter plutôt par adresse IP",
+    "add": "Ajouter",
+    "repair_title": "Corriger l’adresse",
+    "repair_intro": "Saisissez l’adresse IP actuelle de l’imprimante. À utiliser quand elle a changé d’adresse et ne répond plus."
   }
 }

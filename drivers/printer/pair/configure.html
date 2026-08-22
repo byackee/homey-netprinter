@@ -17,8 +17,8 @@
   .hidden { display: none; }
 </style>
 
-<h1 data-i18n="pair.title"></h1>
-<p class="intro" data-i18n="pair.intro"></p>
+<h1 data-i18n="pair.repair_title"></h1>
+<p class="intro" data-i18n="pair.repair_intro"></p>
 
 <div class="field">
   <label for="host" data-i18n="pair.host"></label>
@@ -77,11 +77,10 @@
         `<div class="model">${escapeHtml(Homey.__('pair.found'))} — ${escapeHtml(name)}</div>` +
         (bits.length ? `<div class="detail">${bits.join(' · ')}</div>` : ''));
 
-      // Navigation belongs to this view. Calling session.showView() from inside
-      // the driver's own showView handler deadlocks: Homey waits for the handler
-      // to return before completing the transition, and the handler waits for
-      // the transition. Homey.showView() here is not re-entrant.
-      setTimeout(() => Homey.showView('list_devices'), 900);
+      // Repair only: the driver has already written the new address, so this
+      // view closes rather than navigating. Navigating out of a custom view into
+      // a system template is what leaves the pairing frontend blank.
+      setTimeout(() => Homey.done(), 900);
     } catch (error) {
       show('bad', escapeHtml(error && error.message ? error.message : String(error)));
     } finally {
@@ -94,7 +93,17 @@
     if (event.key === 'Enter') probe();
   });
 
-  Homey.setTitle(Homey.__('pair.title'));
+  // Prefill with the address the device already has, so a repair is usually
+  // just a matter of correcting the last octet.
+  Homey.emit('getConfig', null)
+    .then((config) => {
+      if (!config) return;
+      hostInput.value = config.host || '';
+      communityInput.value = config.community || 'public';
+    })
+    .catch(() => { /* No stored config; an empty form is correct. */ });
+
+  Homey.setTitle(Homey.__('pair.repair_title'));
   Homey.addNavigationButton({ id: 'next', title: Homey.__('pair.test') }, probe);
 
   Homey.ready();
