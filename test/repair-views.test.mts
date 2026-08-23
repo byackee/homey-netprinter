@@ -70,3 +70,21 @@ describe('driver views have the files Homey will look for', () => {
     }
   });
 });
+
+describe('a repair view carries its own confirm control', () => {
+  /**
+   * A repair session does not render Homey's navigation bar, so a view whose
+   * only control is `Homey.addNavigationButton` opens with no way to confirm —
+   * which is what a user hit: "on the repair page the okay button is missing".
+   * Pressing Enter in a field still worked, which is why it went unnoticed.
+   */
+  it('has a button in the page, not only a navigation button', () => {
+    for (const driver of drivers()) {
+      for (const view of customViews(driver.repair)) {
+        const path = join('drivers', driver.id, 'repair', `${view}.html`);
+        const html = readFileSync(join(root, path), 'utf8');
+        assert.match(html, /<button\b/, `${path} has no in-page button`);
+      }
+    }
+  });
+});

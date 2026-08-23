@@ -24,6 +24,13 @@
   .result .model { font-weight: 600; }
   .result .detail { color: var(--homey-text-color-light); font-size: .9rem; }
   .hidden { display: none; }
+  .actions { margin-top: 1.25rem; }
+  .actions button {
+    width: 100%; padding: .7rem 1rem; font: inherit; font-weight: 600;
+    border: 0; border-radius: var(--homey-border-radius-small, 6px); cursor: pointer;
+    background: var(--homey-color-blue, #1B6AC9); color: #fff;
+  }
+  .actions button:disabled { opacity: .55; cursor: default; }
 </style>
 
 <h1 data-i18n="pair.repair_title"></h1>
@@ -39,12 +46,17 @@
   <input type="text" id="community" autocomplete="off" value="public">
 </div>
 
+<div class="actions">
+  <button type="button" id="test"></button>
+</div>
+
 <div id="result" class="result hidden"></div>
 
 <script type="text/javascript">
   const hostInput = document.getElementById('host');
   const communityInput = document.getElementById('community');
   const result = document.getElementById('result');
+  const testButton = document.getElementById('test');
 
   let probing = false;
 
@@ -62,6 +74,8 @@
   async function probe() {
     if (probing) return;
     probing = true;
+    testButton.disabled = true;
+    testButton.textContent = Homey.__('pair.testing');
     Homey.showLoadingOverlay();
     show('ok', Homey.__('pair.testing'));
 
@@ -94,6 +108,8 @@
       show('bad', escapeHtml(error && error.message ? error.message : String(error)));
     } finally {
       probing = false;
+      testButton.disabled = false;
+      testButton.textContent = Homey.__('pair.test');
       Homey.hideLoadingOverlay();
     }
   }
@@ -112,7 +128,18 @@
     })
     .catch(() => { /* No stored config; an empty form is correct. */ });
 
-  // No /homey.js include, no ready(), no setTitle(): a pairing view is given its
-  // API by Homey, and loading a second copy leaves every emit unheard.
-  Homey.addNavigationButton({ id: 'next', title: Homey.__('pair.test') }, probe);
+  /*
+   * The confirm control is a real button in the page, not a navigation button.
+   *
+   * `Homey.addNavigationButton` was the only way to run this view, and a repair
+   * session does not render Homey's navigation bar — so the view opened with no
+   * way to confirm at all, and only pressing Enter in the address field worked.
+   * A user reported exactly that: "on the repair page the okay button is
+   * missing". A button in the page cannot go missing with the chrome around it.
+   *
+   * No /homey.js include, no ready(), no setTitle(): a pairing view is given its
+   * API by Homey, and loading a second copy leaves every emit unheard.
+   */
+  testButton.textContent = Homey.__('pair.test');
+  testButton.addEventListener('click', probe);
 </script>
