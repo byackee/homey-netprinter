@@ -43,5 +43,10 @@
     "en": "The repair screen, used to correct a printer’s address, had no confirm button. It has one now. Also includes the waste tank and manual feed fixes from 1.0.8.",
     "fr": "L’écran de réparation, qui sert à corriger l’adresse d’une imprimante, n’avait aucun bouton de validation. Il en a un. Inclut aussi les correctifs du réservoir d’encre usée et de l’alimentation manuelle de la 1.0.8.",
     "nl": "Het reparatiescherm, waarmee je het adres van een printer corrigeert, had geen bevestigingsknop. Nu wel. Bevat ook de fixes voor afvalreservoir en handinvoer uit 1.0.8."
+  },
+  "1.0.10": {
+    "en": "Repairing a printer now takes effect immediately. It used to store the new address without applying it, so the printer kept being read at its old address and stayed marked unavailable until the app was restarted.",
+    "fr": "La réparation d’une imprimante prend effet immédiatement. Elle enregistrait la nouvelle adresse sans l’appliquer : l’imprimante continuait d’être relevée à l’ancienne adresse et restait marquée indisponible jusqu’au redémarrage de l’app.",
+    "nl": "Het repareren van een printer werkt nu meteen. Het nieuwe adres werd wel opgeslagen maar niet toegepast, waardoor de printer op het oude adres werd uitgelezen en als niet beschikbaar bleef staan tot de app opnieuw startte."
   }
 }

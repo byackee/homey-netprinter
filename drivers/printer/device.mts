@@ -331,6 +331,24 @@ export default class PrinterDevice extends Homey.Device {
     await this.setSettings({ host: address }).catch((e: Error) =>
       this.error(`Could not store the new address: ${e.message}`));
 
+    await this.reconfigure();
+  }
+
+  /**
+   * Picks up settings that were written to the device from outside it.
+   *
+   * `setSettings()` called from code does not fire `onSettings()` — that hook is
+   * for changes a user makes in the settings UI. So a repair, or a discovered
+   * address change, would store a new host and leave this device polling the old
+   * one until the app restarted. Repair exists precisely to follow a printer
+   * whose address moved, so that was the one path where it mattered most.
+   *
+   * Polling immediately is what clears the unavailable flag: `poll()` calls
+   * `setAvailable()` the moment a read succeeds, and a user who has just proved
+   * their printer answers should not then wait out a five-minute poll interval
+   * watching it sit greyed out.
+   */
+  async reconfigure(): Promise<void> {
     this.buildReader();
     this.consecutiveFailures = 0;
     await this.poll();

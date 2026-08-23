@@ -324,11 +324,29 @@ export default class PrinterDriver extends Homey.Driver {
 
       if (!host) return { ok: false, message: this.homey.__('pair.error_no_host') };
 
-      const version = await negotiateVersion(host, community);
+      const version = await negotiateVersion(host, community, PAIR_TIMEOUT_MS);
       if (version === null) return { ok: false, message: this.homey.__('pair.error_unreachable') };
 
-      const identity = await new PrinterReader(host, community, version).readIdentity();
+      // The printer has answered, so the repair succeeds from here whatever the
+      // identity read does. A printer that omits one of the six identity OIDs is
+      // still the printer this device is for; refusing to repair it would strand
+      // the user on an address they have just proved works.
+      const identity = await new PrinterReader(host, community, version, PAIR_TIMEOUT_MS)
+        .readIdentity()
+        .catch((error: Error) => {
+          this.note(`repair ${host}: answered but identity failed — ${error.message}`);
+          return { model: null, name: null, serial: null, enterprise: null, description: null };
+        });
+
       await device.setSettings({ host, community, version });
+
+      // Storing settings is not enough: setSettings() from code does not fire
+      // onSettings(), so without this the device keeps polling the old address
+      // and stays flagged unavailable until the app is restarted. A user hit
+      // exactly that — "the app found the printer but Homey still flags it as
+      // unavailable, have to restart the app".
+      await (device as PrinterDevice).reconfigure()
+        .catch((error: Error) => this.note(`repair ${host}: reconfigure failed — ${error.message}`));
 
       return {
         ok: true,
