@@ -206,11 +206,11 @@
         '<p class="hint">' + esc(Homey.__('settings.sweeping')) + '</p>';
 
       try {
-        renderSweep(await call('POST', '/scan'));
+        renderSweep(await call('POST', '/scan/start'));
 
         for (;;) {
           await new Promise((resolve) => setTimeout(resolve, 1500));
-          const data = await call('GET', '/scan');
+          const data = await call('GET', '/scan/status');
           renderSweep(data);
           if (!data.running) break;
         }

@@ -92,7 +92,7 @@
     },
     "getScan": {
       "method": "GET",
-      "path": "/scan",
+      "path": "/scan/status",
       "role": "owner"
     },
     "postTest": {
@@ -102,7 +102,7 @@
     },
     "postScan": {
       "method": "POST",
-      "path": "/scan",
+      "path": "/scan/start",
       "role": "owner"
     }
   },
