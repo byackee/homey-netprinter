@@ -83,6 +83,11 @@
     "email": "admin@dataweavelabs.com"
   },
   "support": "mailto:admin@dataweavelabs.com",
+  "source": "https://github.com/byackee/homey-netprinter",
+  "bugs": {
+    "url": "https://github.com/byackee/homey-netprinter/issues"
+  },
+  "homeyCommunityTopicId": 158655,
   "api": {
     "getDiagnostics": {
       "method": "GET",
