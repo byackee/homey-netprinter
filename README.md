@@ -32,8 +32,11 @@ Those appear in pairing instantly, and — the real prize — Homey reports when
 moves, so a DHCP lease change updates the device's address by itself instead of
 leaving it unavailable until someone repairs it by hand.
 
-A subnet sweep then covers the rest: printers with mDNS disabled, or on a network
-where multicast does not carry. It asks each address the same SNMP question the
+A subnet sweep then covers the rest, and it is not a fallback of last resort:
+on the network this was developed against, Homey itself receives no mDNS at all —
+the printer advertises all three printer services and a Mac on the same subnet
+sees them, but nothing reaches Homey, which points at multicast being filtered
+between wireless clients. The sweep is what makes the app work there regardless. It asks each address the same SNMP question the
 app will ask later, so anything it finds is by definition usable. mDNS says a
 printer is *there*; only SNMP says it can be *read*, so discovery results are
 confirmed over SNMP before being offered.

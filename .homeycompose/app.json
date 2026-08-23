@@ -103,6 +103,11 @@
       "method": "POST",
       "path": "/scan/start",
       "role": "owner"
+    },
+    "getTrace": {
+      "method": "GET",
+      "path": "/trace",
+      "role": "owner"
     }
   }
 }

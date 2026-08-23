@@ -192,7 +192,25 @@ async function postTest({ body }: Request): Promise<{
 }
 
 /**
+ * What the pairing view did, and what Homey's mDNS discovery currently sees.
+ *
+ * Both are otherwise unobservable: a CLI-installed app has no readable log, so a
+ * pairing view that quietly does nothing gives no clue why, and discovery
+ * failing shows no symptom until a printer changes address.
+ */
+async function getTrace({ homey }: Request): Promise<{
+  trace: string[];
+  announced: Array<{ address: string; name: string; model: string | null }>;
+}> {
+  const driver = homey.drivers.getDriver('printer') as unknown as {
+    getTrace(): string[];
+    announcedPrinters(): Array<{ address: string; name: string; model: string | null }>;
+  };
+  return { trace: driver.getTrace(), announced: driver.announcedPrinters() };
+}
+
+/**
  * Homey resolves endpoints off the default export, keyed by the names declared
  * in `.homeycompose/app.json`.
  */
-export default { getDiagnostics, getScan, postScan, postTest };
+export default { getDiagnostics, getScan, postScan, postTest, getTrace };

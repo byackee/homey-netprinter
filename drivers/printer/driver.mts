@@ -1,5 +1,6 @@
 import Homey from 'homey';
 
+import type NetworkPrinterApp from '../../app.mjs';
 import { PrinterReader } from '../../lib/printer-reader.mjs';
 import { negotiateVersion, type SnmpVersion } from '../../lib/snmp-client.mjs';
 import { scanSubnet, subnetOf } from '../../lib/network-scan.mjs';
@@ -33,7 +34,31 @@ interface ProbeResult {
   printer?: Candidate;
 }
 
+/** How many pairing trace lines to keep. Enough to cover one pairing attempt. */
+const TRACE_LIMIT = 60;
+
 export default class PrinterDriver extends Homey.Driver {
+  /**
+   * A ring buffer of what happened during pairing, readable from the settings page.
+   *
+   * An app installed from the CLI has no readable log, so a pairing view that
+   * fails silently is otherwise undiagnosable — you see a screen that does
+   * nothing and have no way to learn why.
+   */
+  private trace: string[] = [];
+
+  private note(message: string): void {
+    const line = `${new Date().toISOString()} ${message}`;
+    this.trace.push(line);
+    if (this.trace.length > TRACE_LIMIT) this.trace.shift();
+    this.log(message);
+  }
+
+  /** The pairing trace, oldest first. */
+  getTrace(): string[] {
+    return [...this.trace];
+  }
+
   override async onInit(): Promise<void> {
     this.homey.flow
       .getActionCard('refresh_printer')
@@ -82,109 +107,104 @@ export default class PrinterDriver extends Homey.Driver {
    * `list_devices`.
    */
   override async onPair(session: Homey.Driver.PairSession): Promise<void> {
+    this.note('onPair start');
+
     // A script error in a pairing view is invisible otherwise, because an app
     // installed from the CLI has no readable log anywhere.
     session.setHandler('viewLog', async (message: unknown) => {
-      this.log(`pair view: ${String(message)}`);
+      this.note(`view: ${String(message)}`);
     });
 
-    // The sweep is started, not awaited. A /24 takes around fifteen seconds, and
-    // holding a single `Homey.emit` open that long risks the frontend timing the
-    // request out and leaving the view stuck on "searching" forever. Results are
-    // pushed to the view as they arrive and a `scan_done` marks the end.
-    session.setHandler('scan', async (): Promise<{ started: boolean }> => {
-      // Addresses already paired are skipped so the list only offers new printers.
+    /*
+     * Pairing polls for results rather than being pushed them.
+     *
+     * The first attempt used session.emit() into a Homey.on() listener in the
+     * view. That direction was never verified to work here, and when the view
+     * showed nothing there was no way to tell whether the sweep had failed or
+     * the events simply never arrived. Request/response through Homey.emit() is
+     * the one direction these apps have actually proven, so everything uses it.
+     */
+    session.setHandler('scan_start', async (): Promise<{ started: boolean }> => {
+      this.note('scan_start');
+      const app = this.homey.app as NetworkPrinterApp;
+      const state = await app.startScan();
+      this.note(`sweep running=${state.running} subnet=${state.subnet ?? 'unknown'}`);
+      return { started: state.subnet !== null };
+    });
+
+    session.setHandler('scan_status', async (): Promise<{
+      running: boolean;
+      printers: Candidate[];
+    }> => {
+      const app = this.homey.app as NetworkPrinterApp;
+      const state = app.getScanState();
+
+      // Addresses already paired are dropped so the list only offers new printers.
       const taken = new Set(
         this.getDevices().map((device) => String(device.getSetting('host') ?? '')),
       );
 
-      const emit = (event: string, payload: unknown) => {
-        // The user can close the pairing dialog mid-sweep, which makes every
-        // later emit reject. That is expected, not an error worth logging loudly.
-        session.emit(event, payload).catch(() => {});
-      };
-
-      // Homey has been listening for mDNS since it started, so anything it already
-      // knows about appears at once — the sweep below only has to cover printers
-      // that announce nothing.
-      const announced = this.discoveredAddresses();
-      for (const address of announced) {
-        if (taken.has(address)) continue;
-        taken.add(address);
-
-        const candidate = await this.identify(address, 'public');
-        if (candidate === null) continue;
-
-        this.log(`Discovery already knew ${candidate.name} at ${address}`);
-        emit('printer', candidate);
-      }
-
-      const subnet = await this.localSubnet();
-      if (subnet === null) {
-        this.error('Could not determine the local subnet; discovery results only');
-        emit('scan_done', { count: announced.size });
-        return { started: true };
-      }
-
-      this.log(`Sweeping ${subnet}.0/24 for printers`);
-
-      void scanSubnet(subnet, taken, (printer) => {
-        this.log(`Found ${printer.name} at ${printer.host}`);
-        emit('printer', {
+      const printers = state.found
+        .filter((printer) => !taken.has(printer.host))
+        .map((printer) => ({
           host: printer.host,
           community: 'public',
           version: 'v2c' as SnmpVersion,
           name: printer.name,
           serial: printer.serial,
-        } satisfies Candidate);
-      })
-        .then((found) => {
-          this.log(`Sweep finished, ${found.length} printer(s)`);
-          emit('scan_done', { count: found.length + announced.size });
-        })
-        .catch((error: Error) => {
-          this.error(`Sweep failed: ${error.message}`);
-          emit('scan_done', { count: announced.size, error: error.message });
-        });
+        }));
 
-      return { started: true };
+      if (!state.running) this.note(`scan_status final: ${printers.length} offered`);
+      return { running: state.running, printers };
     });
 
     session.setHandler('probe', async (data: ProbeRequest): Promise<ProbeResult> => {
       const host = String(data.host ?? '').trim();
       const community = String(data.community ?? 'public').trim() || 'public';
+      this.note(`probe ${host}`);
 
       if (!host) return { ok: false, message: this.homey.__('pair.error_no_host') };
 
-      const version = await negotiateVersion(host, community);
-      if (version === null) {
+      const candidate = await this.identify(host, community);
+      if (candidate === null) {
+        this.note(`probe ${host}: no answer`);
         return { ok: false, message: this.homey.__('pair.error_unreachable') };
       }
 
-      try {
-        const reader = new PrinterReader(host, community, version);
-        const identity = await reader.readIdentity();
-        const snapshot = await reader.read();
-        const vendor = vendorName(identity.enterprise);
-
-        return {
-          ok: true,
-          model: identity.model,
-          vendor,
-          serial: identity.serial,
-          supplies: snapshot.supplies.length,
-          printer: {
-            host,
-            community,
-            version,
-            name: suggestDeviceName(identity.model, vendor, identity.name, host),
-            serial: identity.serial,
-          },
-        };
-      } catch (error) {
-        return { ok: false, message: (error as Error).message };
-      }
+      this.note(`probe ${host}: ${candidate.name}`);
+      return {
+        ok: true,
+        model: candidate.name,
+        serial: candidate.serial,
+        printer: candidate,
+      };
     });
+
+    session.setHandler('adopted', async (data: unknown) => {
+      this.note(`adopted: ${JSON.stringify(data)}`);
+    });
+  }
+
+  /**
+   * What Homey's mDNS discovery currently sees, for the settings page.
+   *
+   * Worth surfacing because discovery failing is otherwise silent: the app keeps
+   * working off the subnet sweep, and the only symptom is that a printer which
+   * changes address stops updating itself.
+   */
+  announcedPrinters(): Array<{ address: string; name: string; model: string | null }> {
+    try {
+      const results = this.getDiscoveryStrategy().getDiscoveryResults();
+      return Object.values(results).map((result) => {
+        const mdns = result as Homey.DiscoveryResultMDNSSD;
+        const txt = (mdns.txt ?? {}) as Record<string, unknown>;
+        const model = typeof txt.ty === 'string' ? txt.ty : null;
+        return { address: String(mdns.address ?? ''), name: String(mdns.name ?? ''), model };
+      });
+    } catch (error) {
+      this.error(`Could not read discovery results: ${(error as Error).message}`);
+      return [];
+    }
   }
 
   /**

@@ -53,12 +53,15 @@
 
 <script type="text/javascript">
   /*
-   * The whole pairing happens in this one view, on purpose.
+   * One view, no navigation, and polling rather than pushed events.
    *
    * A custom view followed by a system template cannot be navigated into: both
    * Homey.showView() and Homey.nextView() fail inside Homey's pairing frontend
-   * and leave a blank, unresponsive screen. So there is no second view — this one
-   * calls Homey.createDevice() directly and then Homey.done().
+   * and leave a blank screen. So this view calls Homey.createDevice() itself.
+   *
+   * Results are polled with Homey.emit(), not received through Homey.on(). The
+   * push direction was never proven to work here, and when nothing appeared
+   * there was no way to tell a failed sweep from events that never arrived.
    */
   const searchEl = document.getElementById('search');
   const statusEl = document.getElementById('status');
@@ -68,16 +71,19 @@
   const addEl = document.getElementById('add');
 
   let busy = false;
+  let sweeping = false;
 
-  // A script error in a pairing view is otherwise invisible, because an app
-  // installed from the CLI has no readable log. The driver records these.
+  // Every failure here is reported to the driver, which keeps a trace the
+  // settings page can show. Without it a silent pairing view is undiagnosable.
   function report(message) {
     try { Homey.emit('viewLog', String(message)); } catch (e) { /* nothing we can do */ }
   }
-  window.addEventListener('error', (event) => report('view error: ' + event.message));
+  window.addEventListener('error', (event) => report('error: ' + event.message));
+  window.addEventListener('unhandledrejection', (event) =>
+    report('unhandled rejection: ' + ((event.reason && event.reason.message) || event.reason)));
 
   function setStatus(text, bad) {
-    statusEl.textContent = text;
+    statusEl.textContent = text || '';
     statusEl.className = bad ? 'status bad' : 'status';
   }
 
@@ -87,10 +93,27 @@
     })[c]);
   }
 
+  function render(printers) {
+    listEl.innerHTML = '';
+    for (const printer of printers) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'row';
+      const meta = [printer.host, printer.serial].filter(Boolean).join(' \u00b7 ');
+      button.innerHTML =
+        '<div class="grow">' +
+          '<div class="name">' + escapeHtml(printer.name) + '</div>' +
+          '<div class="meta">' + escapeHtml(meta) + '</div>' +
+        '</div>';
+      button.addEventListener('click', () => adopt(printer));
+      listEl.appendChild(button);
+    }
+  }
+
   async function adopt(printer) {
     if (busy) return;
     busy = true;
-    Homey.showLoadingOverlay();
+    report('adopting ' + printer.host);
 
     try {
       await Homey.createDevice({
@@ -104,74 +127,48 @@
           low_threshold: 15,
         },
       });
+      report('created ' + printer.host);
       Homey.done();
     } catch (error) {
-      report('createDevice failed: ' + (error && error.message));
+      report('createDevice failed: ' + ((error && error.message) || error));
       setStatus((error && error.message) || String(error), true);
       busy = false;
-      Homey.hideLoadingOverlay();
     }
   }
-
-  function render(printers) {
-    listEl.innerHTML = '';
-    for (const printer of printers) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'row';
-      const meta = [printer.host, printer.serial].filter(Boolean).join(' · ');
-      button.innerHTML =
-        '<div class="grow">' +
-          '<div class="name">' + escapeHtml(printer.name) + '</div>' +
-          '<div class="meta">' + escapeHtml(meta) + '</div>' +
-        '</div>';
-      button.addEventListener('click', () => adopt(printer));
-      listEl.appendChild(button);
-    }
-  }
-
-  // Results stream in one at a time rather than arriving as one list, because a
-  // /24 sweep outlasts what the pairing frontend will hold a request open for.
-  const printers = [];
-  let sweeping = false;
-
-  Homey.on('printer', (printer) => {
-    printers.push(printer);
-    setStatus('');
-    render(printers);
-  });
-
-  Homey.on('scan_done', (result) => {
-    sweeping = false;
-    searchEl.disabled = false;
-    searchEl.textContent = Homey.__('pair.search_again');
-    if (printers.length === 0) setStatus(Homey.__('pair.none_found'));
-    if (result && result.error) report('sweep error: ' + result.error);
-  });
 
   async function sweep() {
     if (sweeping) return;
     sweeping = true;
     searchEl.disabled = true;
-
-    // A repeat search starts from a clean list, so a printer that has since been
-    // switched off does not linger from the previous run.
-    printers.length = 0;
-    render(printers);
+    listEl.innerHTML = '';
     setStatus(Homey.__('pair.searching'));
 
     try {
-      const answer = await Homey.emit('scan', null);
-      if (!answer || !answer.started) {
+      const started = await Homey.emit('scan_start', null);
+      if (!started || !started.started) {
         setStatus(Homey.__('pair.none_found'));
-        sweeping = false;
-        searchEl.disabled = false;
+        return;
+      }
+
+      for (;;) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const data = await Homey.emit('scan_status', null);
+        if (!data) break;
+
+        render(data.printers || []);
+        if (!data.running) {
+          setStatus((data.printers || []).length ? '' : Homey.__('pair.none_found'));
+          break;
+        }
+        setStatus(Homey.__('pair.searching'));
       }
     } catch (error) {
-      report('scan failed: ' + (error && error.message));
+      report('sweep failed: ' + ((error && error.message) || error));
       setStatus((error && error.message) || String(error), true);
+    } finally {
       sweeping = false;
       searchEl.disabled = false;
+      searchEl.textContent = Homey.__('pair.search_again');
     }
   }
 
@@ -190,6 +187,7 @@
       setStatus('');
       await adopt(answer.printer);
     } catch (error) {
+      report('probe failed: ' + ((error && error.message) || error));
       setStatus((error && error.message) || String(error), true);
     } finally {
       addEl.disabled = false;
@@ -204,5 +202,6 @@
 
   Homey.setTitle(Homey.__('pair.title'));
   Homey.ready();
+  report('view ready');
   sweep();
 </script>
