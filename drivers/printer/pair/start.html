@@ -38,7 +38,7 @@
 <h1 data-i18n="pair.title"></h1>
 <p class="intro" data-i18n="pair.intro"></p>
 
-<button type="button" id="search" data-i18n="pair.search"></button>
+<button type="button" id="search" disabled></button>
 <div id="status" class="status"></div>
 <div id="list"></div>
 
@@ -155,7 +155,10 @@
   async function sweep() {
     if (sweeping) return;
     sweeping = true;
+    // The search starts on its own, so the button reports what is happening
+    // rather than inviting a click on something already under way.
     searchEl.disabled = true;
+    searchEl.textContent = t('pair.searching_button', 'Searching\u2026');
     listEl.innerHTML = '';
     setStatus(t('pair.searching', 'Searching\u2026'));
     report('sweep: requesting scan_start');
@@ -222,7 +225,7 @@
 
   // Labels are set from script rather than data-i18n, so a translation problem
   // cannot leave a button that looks empty and unclickable.
-  searchEl.textContent = t('pair.search', 'Search my network');
+  searchEl.textContent = t('pair.searching_button', 'Searching\u2026');
   addEl.textContent = t('pair.add', 'Add');
 
   // setTitle is optional: if the pairing frontend does not provide it, losing the

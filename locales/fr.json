@@ -21,7 +21,8 @@
     "repair_title": "Corriger l’adresse",
     "repair_intro": "Saisissez l’adresse IP actuelle de l’imprimante. À utiliser quand elle a changé d’adresse et ne répond plus.",
     "search": "Rechercher sur mon réseau",
-    "search_again": "Relancer la recherche"
+    "search_again": "Relancer la recherche",
+    "searching_button": "Recherche en cours…"
   },
   "settings": {
     "printers": "Imprimantes appairées",
