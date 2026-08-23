@@ -42,8 +42,18 @@ export default class PrinterDevice extends Homey.Device {
   private lowSupplies = new Set<string>();
   /** Titles already stored, so a capability is only renamed when it really changes. */
   private appliedTitles = new Map<string, string>();
-  /** The warning currently on the device, so it is rewritten only when it changes. */
-  private lastWarning: string | null = null;
+  /**
+   * The warning this instance last wrote, so it is rewritten only when it changes.
+   *
+   * `undefined` means "we have not written one yet and do not know what Homey is
+   * holding" — which is the state every app start begins in. It must not be
+   * `null`, because `null` means "there is no warning", and a device warning
+   * survives an app restart: starting at `null` made the first poll of a healthy
+   * printer conclude the warning was already cleared and skip clearing it. A
+   * user was left with a permanent "Low: Waste Toner Bottle" badge on a printer
+   * whose bottle read 100 %.
+   */
+  private lastWarning: string | null | undefined = undefined;
 
   override async onInit(): Promise<void> {
     this.buildReader();
@@ -178,11 +188,16 @@ export default class PrinterDevice extends Homey.Device {
    */
   private async reportLowSupplies(low: string[]): Promise<void> {
     const message = low.length > 0 ? this.homey.__('device.supply_low', { supplies: low.join(', ') }) : null;
+    // Never skips on the first poll, whatever the outcome: see lastWarning.
     if (message === this.lastWarning) return;
-    this.lastWarning = message;
 
     const write = message === null ? this.unsetWarning() : this.setWarning(message);
-    await write.catch((e: Error) => this.error(`Could not set the warning: ${e.message}`));
+    // Only remember it once Homey has taken it. Caching a write that failed
+    // would leave the device showing one thing and this instance believing
+    // another, with no poll able to reconcile them.
+    await write
+      .then(() => { this.lastWarning = message; })
+      .catch((e: Error) => this.error(`Could not set the warning: ${e.message}`));
   }
 
   /**

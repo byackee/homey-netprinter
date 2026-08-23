@@ -48,5 +48,10 @@
     "en": "Repairing a printer now takes effect immediately. It used to store the new address without applying it, so the printer kept being read at its old address and stayed marked unavailable until the app was restarted.",
     "fr": "La réparation d’une imprimante prend effet immédiatement. Elle enregistrait la nouvelle adresse sans l’appliquer : l’imprimante continuait d’être relevée à l’ancienne adresse et restait marquée indisponible jusqu’au redémarrage de l’app.",
     "nl": "Het repareren van een printer werkt nu meteen. Het nieuwe adres werd wel opgeslagen maar niet toegepast, waardoor de printer op het oude adres werd uitgelezen en als niet beschikbaar bleef staan tot de app opnieuw startte."
+  },
+  "1.0.11": {
+    "en": "A low-supply warning left on a device could never be cleared again after an app update, so a printer with nothing low kept showing an orange badge. It is cleared on the first check now.",
+    "fr": "Un avertissement de consommable bas laissé sur un appareil ne pouvait plus jamais être levé après une mise à jour de l’app : une imprimante sans rien de bas gardait un bandeau orange. Il est désormais levé dès le premier relevé.",
+    "nl": "Een waarschuwing voor laag verbruik op een apparaat kon na een app-update nooit meer worden gewist, waardoor een printer zonder problemen een oranje balk bleef tonen. Die wordt nu bij de eerste meting gewist."
   }
 }
