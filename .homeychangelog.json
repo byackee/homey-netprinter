@@ -83,5 +83,10 @@
     "en": "The settings page now tells apart a printer saying \"there is some left\" from one saying \"I do not know\". Both used to read as unknown, which looks like a fault on printers that never put a number on their levels.",
     "fr": "La page de réglages distingue désormais une imprimante qui dit « il en reste » d’une imprimante qui dit « je ne sais pas ». Les deux s’affichaient comme inconnu, ce qui ressemble à une panne sur les imprimantes qui ne chiffrent jamais leurs niveaux.",
     "nl": "De instellingenpagina maakt nu onderscheid tussen een printer die zegt \"er is nog wat over\" en een die zegt \"ik weet het niet\". Beide werden als onbekend getoond, wat op een storing lijkt bij printers die hun niveaus nooit in cijfers uitdrukken."
+  },
+  "1.0.18": {
+    "en": "A printer that stops answering now dims its tile straight away, while keeping its last readings on screen. Marking it unavailable — which hides the readings and offers a repair — is now the separate, optional step it should always have been.",
+    "fr": "Une imprimante qui cesse de répondre grise désormais sa tuile immédiatement, tout en conservant ses derniers relevés à l’écran. La marquer indisponible — ce qui masque les relevés et propose une réparation — devient l’étape distincte et facultative qu’elle aurait toujours dû être.",
+    "nl": "Een printer die niet meer antwoordt maakt zijn tegel nu meteen grijs, terwijl de laatste metingen zichtbaar blijven. Hem als niet beschikbaar markeren — wat de metingen verbergt en een reparatie aanbiedt — is nu de aparte, optionele stap die het altijd had moeten zijn."
   }
 }

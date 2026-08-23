@@ -15,6 +15,7 @@ The manufacturer is detected from `sysObjectID` and used only to name the device
 | One level per cartridge, tank or maintenance unit | `prtMarkerSuppliesTable`, discovered by walk |
 | One level per paper tray, named after its tray and paper | `prtInputTable` |
 | Output tray: OK, half full, full | `prtOutputTable` plus the output error bits |
+| Responding: dims the tile the moment the printer stops answering | derived from the read itself |
 | Status: ready, printing, warming up, offline | `hrPrinterStatus`, `hrDeviceStatus` |
 | Panel message, e.g. "Ready" | `prtConsoleDisplayBufferText` |
 | Printer alerts, in the printer's own words | `prtAlertTable` |
@@ -112,8 +113,14 @@ npx tsc -p tsconfig.tools.json && node .toolsbuild/tools/probe.mjs 192.168.1.50 
   and not others, so removal must never be driven by a thin poll — the app only
   drops a supply row when the supplies table was read successfully, and never
   drops a scalar row at all.
-- **A receptacle fills up as it is used.** `prtMarkerSuppliesClass` 4 reports how
-  full the waste tank is, so its percentage is inverted before display.
+- **A receptacle already reports its own headroom — never invert it.** RFC 3805
+  defines `prtMarkerSuppliesLevel` as "the current level if this supply is a
+  container; the *remaining space* if this supply is a receptacle", so a waste
+  tank counts down as it fills, exactly like a cartridge. This app inverted it on
+  the opposite assumption and showed a brand new Lexmark waste bottle reporting
+  15000 of 15000 impressions of headroom as 0 %, complete with a low-supply alarm
+  on a printer with nothing wrong. `prtMarkerSuppliesClass` classifies the part;
+  it does not change how the number is read.
 
 - **On a settings page, `Homey` is not a global** — it is the argument of
   `onHomeyReady(Homey)`. Code outside that function which touches Homey throws a

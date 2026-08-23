@@ -132,6 +132,7 @@ export default class PrinterDevice extends Homey.Device {
       ? error.message
       : `Poll failed: ${(error as Error).message}`;
 
+    await this.safeSet('onoff', false);
     await this.safeSet('printer_status', 'offline');
     await this.triggerStatusChange('offline');
 

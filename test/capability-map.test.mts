@@ -357,3 +357,12 @@ describe('hasBlockingError', () => {
     assert.equal(hasBlockingError([]), false);
   });
 });
+
+describe('the responding capability', () => {
+  it('is on whenever a read succeeded', () => {
+    // Reaching planCapabilities at all means the printer answered.
+    const plan = planCapabilities(snapshot(), 15);
+    assert.equal(plan.values.find((v) => v.id === 'onoff')?.value, true);
+    assert.ok(plan.capabilities.includes('onoff'));
+  });
+});

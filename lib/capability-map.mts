@@ -204,6 +204,16 @@ export function planCapabilities(snapshot: PrinterSnapshot, threshold: number): 
     if (label.length > 0) titles.set(id, label);
   });
 
+  // We only get here from a successful read, so the printer answered.
+  //
+  // This is `onoff` rather than setUnavailable() because the two say different
+  // things: unavailable means "this device is broken, go fix it", which hides
+  // every reading and — since this driver offers a repair flow — asks the user
+  // to repair a printer they switched off on purpose. A read-only onoff dims
+  // the tile the way people expect and leaves the last readings on screen.
+  // Suggested by smarthomesven on the community forum.
+  addScalar('onoff', true);
+
   addScalar('printer_status', snapshot.status);
   addScalar('alarm_printer_error', hasBlockingError(snapshot.errors));
   addScalar('alarm_supply_low', isSupplyLow(snapshot.supplies, threshold));

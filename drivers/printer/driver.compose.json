@@ -6,6 +6,7 @@
   },
   "class": "sensor",
   "capabilities": [
+    "onoff",
     "printer_status",
     "alarm_supply_low",
     "alarm_printer_error"
@@ -31,5 +32,25 @@
       "id": "configure"
     }
   ],
-  "discovery": "printer"
+  "discovery": "printer",
+  "capabilitiesOptions": {
+    "onoff": {
+      "setable": false,
+      "title": {
+        "en": "Responding",
+        "fr": "Répond",
+        "nl": "Reageert"
+      },
+      "insightsTitleTrue": {
+        "en": "The printer answered",
+        "fr": "L’imprimante a répondu",
+        "nl": "De printer antwoordde"
+      },
+      "insightsTitleFalse": {
+        "en": "The printer stopped answering",
+        "fr": "L’imprimante ne répond plus",
+        "nl": "De printer antwoordt niet meer"
+      }
+    }
+  }
 }
