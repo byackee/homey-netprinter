@@ -49,6 +49,7 @@
     "tray_full": "full",
     "no_message": "no panel message",
     "stored_message": "device still holds message",
-    "stored_status": "device still holds status"
+    "stored_status": "device still holds status",
+    "some_left": "some left"
   }
 }

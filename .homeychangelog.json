@@ -78,5 +78,10 @@
     "en": "Printer alerts stayed on the last thing the printer complained about, long after it had stopped. A tray warning could sit there for hours once the tray was back. It clears now, as soon as the printer reports nothing wrong.",
     "fr": "Les alertes imprimante restaient figées sur la dernière plainte de l’imprimante, bien après qu’elle ait cessé. Un avertissement de bac pouvait y rester des heures alors que le bac était remis. Elles s’effacent désormais dès que l’imprimante ne signale plus rien.",
     "nl": "Printermeldingen bleven staan op het laatste waar de printer over klaagde, lang nadat dat voorbij was. Een ladewaarschuwing kon er uren blijven staan terwijl de lade er weer in zat. Ze worden nu gewist zodra de printer niets meer meldt."
+  },
+  "1.0.17": {
+    "en": "The settings page now tells apart a printer saying \"there is some left\" from one saying \"I do not know\". Both used to read as unknown, which looks like a fault on printers that never put a number on their levels.",
+    "fr": "La page de réglages distingue désormais une imprimante qui dit « il en reste » d’une imprimante qui dit « je ne sais pas ». Les deux s’affichaient comme inconnu, ce qui ressemble à une panne sur les imprimantes qui ne chiffrent jamais leurs niveaux.",
+    "nl": "De instellingenpagina maakt nu onderscheid tussen een printer die zegt \"er is nog wat over\" en een die zegt \"ik weet het niet\". Beide werden als onbekend getoond, wat op een storing lijkt bij printers die hun niveaus nooit in cijfers uitdrukken."
   }
 }

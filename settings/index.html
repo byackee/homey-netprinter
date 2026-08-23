@@ -78,10 +78,19 @@
       });
     }
 
-    /** A level of null means the printer declined to say — shown as such, never as 0. */
-    function levelCell(percent) {
+    /**
+     * A level of null means the printer declined to say — shown as such, never as 0.
+     *
+     * "Declined" comes in two flavours the MIB distinguishes and this page used
+     * to flatten into one: -3 is "there is some left, I will not count it", -2
+     * is "I have no idea". A Ricoh that reports -3 on every cartridge showed as
+     * unknown, which reads like a fault on a printer that is telling us
+     * something perfectly useful.
+     */
+    function levelCell(percent, someRemaining) {
       if (percent === null || percent === undefined) {
-        return '<td class="level sub">' + esc(Homey.__('settings.unknown')) + '</td>';
+        const label = someRemaining ? 'settings.some_left' : 'settings.unknown';
+        return '<td class="level sub">' + esc(Homey.__(label)) + '</td>';
       }
       return '<td class="level">' + percent + ' %</td>';
     }
@@ -95,7 +104,7 @@
           '<tr><td>' + esc(supply.description || supply.colour) +
           rawLevel(supply) +
           '<div class="bar"><span style="width:' + width + '%"></span></div></td>' +
-          levelCell(supply.percent) + '</tr>';
+          levelCell(supply.percent, supply.someRemaining) + '</tr>';
       }
       return html + '</table>';
     }
@@ -125,7 +134,7 @@
       for (const tray of trays) {
         const label = [tray.name, tray.media].filter(Boolean).join(' · ');
         html += '<tr><td>' + esc(label || Homey.__('settings.tray')) + '</td>' +
-          levelCell(tray.percent) + '</tr>';
+          levelCell(tray.percent, tray.someRemaining) + '</tr>';
       }
       return html + '</table>';
     }

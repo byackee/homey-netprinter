@@ -49,6 +49,7 @@
     "tray_full": "plein",
     "no_message": "aucun message de panneau",
     "stored_message": "l’appareil retient encore le message",
-    "stored_status": "l’appareil retient encore l’état"
+    "stored_status": "l’appareil retient encore l’état",
+    "some_left": "il en reste"
   }
 }

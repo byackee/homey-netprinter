@@ -12,7 +12,7 @@ import type Homey from 'homey';
 import type NetworkPrinterApp from './app.mjs';
 
 import { PrinterReader } from './lib/printer-reader.mjs';
-import { classifyOutputTray } from './lib/printer-mib.mjs';
+import { INPUT_SHEETS_REMAINING, classifyOutputTray } from './lib/printer-mib.mjs';
 import { negotiateVersion } from './lib/snmp-client.mjs';
 import { subnetOf } from './lib/network-scan.mjs';
 import { vendorName } from './lib/vendors.mjs';
@@ -61,8 +61,15 @@ interface DeviceReport {
       /** prtMarkerSuppliesClass: 3 counts down as it is used, 4 counts up as it fills. */
       supplyClass: number | null;
       receptacle: boolean;
+      /** The printer says there is some left but will not put a number on it. */
+      someRemaining: boolean;
     }>;
-    trays: Array<{ name: string; media: string; percent: number | null }>;
+    trays: Array<{
+      name: string;
+      media: string;
+      percent: number | null;
+      someRemaining: boolean;
+    }>;
     /**
      * What the device currently holds, next to what the printer just said.
      *
@@ -133,11 +140,15 @@ async function getDiagnostics({ homey }: Request): Promise<{
             unit: s.unit,
             supplyClass: s.supplyClass,
             receptacle: s.isReceptacle,
+            someRemaining: s.someRemaining,
           })),
           trays: snapshot.inputTrays.map((t) => ({
             name: t.name,
             media: t.media,
             percent: t.percent,
+            // A tray reporting -3 has paper it will not count, which is a
+            // different thing from a tray that cannot be read at all.
+            someRemaining: t.level === INPUT_SHEETS_REMAINING,
           })),
           stored: {
             message: device.hasCapability('printer_message')
