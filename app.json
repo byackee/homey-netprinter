@@ -80,10 +80,9 @@
     "xlarge": "/assets/images/xlarge.png"
   },
   "author": {
-    "name": "DataWeave Labs",
-    "email": "admin@dataweavelabs.com"
+    "name": "DataWeave Labs"
   },
-  "support": "mailto:admin@dataweavelabs.com",
+  "support": "https://community.homey.app/t/app-pro-network-printer-ink-and-toner-levels-from-any-network-printer/158655",
   "source": "https://github.com/byackee/homey-netprinter",
   "bugs": {
     "url": "https://github.com/byackee/homey-netprinter/issues"
