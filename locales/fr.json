@@ -1,6 +1,7 @@
 {
   "device": {
-    "unreachable": "L’imprimante ne répond plus sur le réseau. Vérifiez qu’elle est allumée et que son adresse IP n’a pas changé."
+    "unreachable": "L’imprimante ne répond plus sur le réseau. Vérifiez qu’elle est allumée et que son adresse IP n’a pas changé.",
+    "supply_low": "Bas : __supplies__"
   },
   "pair": {
     "title": "Trouvez votre imprimante",
@@ -40,6 +41,11 @@
     "no_devices": "Aucune imprimante appairée pour l’instant.",
     "loading": "Relevé des imprimantes…",
     "pages": "pages",
-    "unknown": "inconnu"
+    "unknown": "inconnu",
+    "tray": "Bac",
+    "output_tray": "Bac de sortie",
+    "tray_ok": "OK",
+    "tray_near_full": "à moitié plein",
+    "tray_full": "plein"
   }
 }

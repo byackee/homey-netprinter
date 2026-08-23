@@ -2,12 +2,22 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  classifyOutputTray,
   classifySupplyColour,
+  decodeCoverStatus,
   decodeErrorState,
   decodePrinterStatus,
+  decodeSupplyUnit,
   enterpriseNumber,
+  inputPercent,
+  isCoverOpen,
+  isPaperLow,
   isReceptacle,
+  outputPercentFree,
+  summariseAlerts,
   supplyPercent,
+  type InputTray,
+  type OutputTray,
 } from '../lib/printer-mib.mjs';
 
 describe('supplyPercent', () => {
@@ -142,5 +152,173 @@ describe('decodePrinterStatus', () => {
   it('degrades an unknown or absent code to unknown', () => {
     assert.equal(decodePrinterStatus(99), 'unknown');
     assert.equal(decodePrinterStatus(null), 'unknown');
+  });
+});
+
+function outputTray(remaining: number, maxCapacity: number): OutputTray {
+  return {
+    index: '1.1',
+    name: 'Standard Bin',
+    remaining,
+    maxCapacity,
+    percentFree: outputPercentFree(remaining, maxCapacity),
+  };
+}
+
+function inputTray(level: number, maxCapacity: number): InputTray {
+  return {
+    index: '1.1',
+    name: 'Tray 1',
+    media: 'A4',
+    level,
+    maxCapacity,
+    percent: inputPercent(level, maxCapacity),
+  };
+}
+
+describe('supplyPercent with a unit', () => {
+  it('reads a level the printer already gave as a percentage', () => {
+    // Several printers report a percentage and leave the capacity at -2. Before
+    // the unit column was read, that showed as "unknown" on a printer that had
+    // just answered the question outright.
+    assert.equal(supplyPercent(45, -2, false, 'percent'), 45);
+  });
+
+  it('still refuses to guess when the unit is anything else', () => {
+    assert.equal(supplyPercent(45, -2, false, 'impressions'), null);
+    assert.equal(supplyPercent(45, -2, false), null);
+  });
+
+  it('prefers a real capacity over the unit shortcut', () => {
+    assert.equal(supplyPercent(45, 90, false, 'percent'), 50);
+  });
+});
+
+describe('decodeSupplyUnit', () => {
+  it('names the units the settings page has to print', () => {
+    assert.equal(decodeSupplyUnit(19), 'percent');
+    assert.equal(decodeSupplyUnit(7), 'impressions');
+    assert.equal(decodeSupplyUnit(8), 'sheets');
+  });
+
+  it('degrades anything it does not know to unknown', () => {
+    assert.equal(decodeSupplyUnit(null), 'unknown');
+    assert.equal(decodeSupplyUnit(99), 'unknown');
+  });
+});
+
+describe('outputPercentFree', () => {
+  it('reports how much room is left in the bin', () => {
+    assert.equal(outputPercentFree(250, 500), 50);
+    assert.equal(outputPercentFree(0, 500), 0);
+  });
+
+  it('returns null for the sentinels rather than a made-up number', () => {
+    assert.equal(outputPercentFree(-3, 500), null);
+    assert.equal(outputPercentFree(-2, 500), null);
+    assert.equal(outputPercentFree(100, -2), null);
+  });
+});
+
+describe('classifyOutputTray', () => {
+  it('trusts the printer’s own error bits over any sheet count', () => {
+    assert.equal(classifyOutputTray([outputTray(500, 500)], ['outputFull']), 'full');
+    assert.equal(classifyOutputTray([outputTray(500, 500)], ['outputNearFull']), 'near_full');
+  });
+
+  it('maps the remaining capacity onto the three steps printers use', () => {
+    assert.equal(classifyOutputTray([outputTray(400, 500)], []), 'ok');
+    assert.equal(classifyOutputTray([outputTray(150, 500)], []), 'near_full');
+    assert.equal(classifyOutputTray([outputTray(0, 500)], []), 'full');
+  });
+
+  it('reports the fullest bin, which is the one to go and empty', () => {
+    assert.equal(
+      classifyOutputTray([outputTray(450, 500), outputTray(50, 500)], []),
+      'near_full',
+    );
+  });
+
+  it('says unknown rather than ok when nothing can be sensed', () => {
+    assert.equal(classifyOutputTray([], []), 'unknown');
+    assert.equal(classifyOutputTray([outputTray(-2, -2)], []), 'unknown');
+  });
+
+  it('counts "room for at least one more" as a real ok', () => {
+    assert.equal(classifyOutputTray([outputTray(-3, -2)], []), 'ok');
+  });
+});
+
+describe('isPaperLow', () => {
+  it('fires on the printer’s own warning even with no level to read', () => {
+    assert.equal(isPaperLow([], ['lowPaper'], 15), true);
+    assert.equal(isPaperLow([], ['noPaper'], 15), true);
+    assert.equal(isPaperLow([], ['inputTrayEmpty'], 15), true);
+  });
+
+  it('fires on a tray at or below the threshold', () => {
+    assert.equal(isPaperLow([inputTray(10, 100)], [], 15), true);
+    assert.equal(isPaperLow([inputTray(40, 100)], [], 15), false);
+  });
+
+  it('does not call a tray low just because it cannot be measured', () => {
+    // -3 means the tray holds at least one sheet, which is not a warning.
+    assert.equal(isPaperLow([inputTray(-3, -2)], [], 15), false);
+    assert.equal(isPaperLow([inputTray(-2, -2)], [], 15), false);
+  });
+});
+
+describe('isCoverOpen', () => {
+  it('is open when any door is', () => {
+    assert.equal(isCoverOpen([{ description: 'Front Door', open: true }], []), true);
+    assert.equal(isCoverOpen([{ description: 'Front Door', open: false }], []), false);
+  });
+
+  it('falls back to the error bit for printers with no cover table', () => {
+    assert.equal(isCoverOpen([], ['doorOpen']), true);
+  });
+});
+
+describe('decodeCoverStatus', () => {
+  it('treats an open interlock as an open cover, which is what it is', () => {
+    assert.equal(decodeCoverStatus(3), true);
+    assert.equal(decodeCoverStatus(5), true);
+    assert.equal(decodeCoverStatus(4), false);
+    assert.equal(decodeCoverStatus(6), false);
+  });
+
+  it('assumes closed for codes it does not know', () => {
+    assert.equal(decodeCoverStatus(null), false);
+    assert.equal(decodeCoverStatus(99), false);
+  });
+});
+
+describe('summariseAlerts', () => {
+  it('joins what the printer said, which is what names the consumable', () => {
+    assert.equal(
+      summariseAlerts([
+        { severity: 'warning', code: 1101, group: 9, description: '84 Photoconductor low' },
+        { severity: 'critical', code: 8, group: 5, description: 'Close front door' },
+      ]),
+      '84 Photoconductor low · Close front door',
+    );
+  });
+
+  it('collapses the duplicates a two-tray printer raises', () => {
+    assert.equal(
+      summariseAlerts([
+        { severity: 'warning', code: 4, group: 5, description: 'Tray 1 empty' },
+        { severity: 'warning', code: 4, group: 5, description: 'Tray 1 empty' },
+      ]),
+      'Tray 1 empty',
+    );
+  });
+
+  it('is null when the printer sent rows with nothing in them', () => {
+    assert.equal(summariseAlerts([]), null);
+    assert.equal(
+      summariseAlerts([{ severity: 'other', code: null, group: null, description: '  ' }]),
+      null,
+    );
   });
 });

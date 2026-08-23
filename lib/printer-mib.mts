@@ -18,6 +18,15 @@ export const OID = {
   hrDeviceDescr: '1.3.6.1.2.1.25.3.2.1.3.1',
   /** hrPrinterStatus.1 — see {@link PRINTER_STATUS}. */
   hrPrinterStatus: '1.3.6.1.2.1.25.3.5.1.1.1',
+  /**
+   * hrDeviceStatus.1 — see {@link DEVICE_STATUS}.
+   *
+   * Read alongside hrPrinterStatus because the two answer different questions:
+   * hrPrinterStatus says what the print engine is doing, hrDeviceStatus whether
+   * the machine is usable at all. A printer with a jam commonly reports `idle`
+   * on the first and `down` on the second.
+   */
+  hrDeviceStatus: '1.3.6.1.2.1.25.3.2.1.5.1',
   /** hrPrinterDetectedErrorState.1 — a bit string, see {@link ERROR_BITS}. */
   hrPrinterDetectedErrorState: '1.3.6.1.2.1.25.3.5.1.2.1',
   /** prtGeneralPrinterName.1 — often shorter than hrDeviceDescr. */
@@ -33,13 +42,62 @@ export const OID = {
   suppliesClass: '1.3.6.1.2.1.43.11.1.1.4',
   suppliesType: '1.3.6.1.2.1.43.11.1.1.5',
   suppliesDescription: '1.3.6.1.2.1.43.11.1.1.6',
+  /** prtMarkerSuppliesSupplyUnit — what the level is counted in, see {@link SUPPLY_UNIT}. */
+  suppliesUnit: '1.3.6.1.2.1.43.11.1.1.7',
   suppliesMaxCapacity: '1.3.6.1.2.1.43.11.1.1.8',
   suppliesLevel: '1.3.6.1.2.1.43.11.1.1.9',
+
+  /** prtInputTable — walked, one row per paper tray. */
+  inputCapacityUnit: '1.3.6.1.2.1.43.8.2.1.8',
+  inputMaxCapacity: '1.3.6.1.2.1.43.8.2.1.9',
+  inputCurrentLevel: '1.3.6.1.2.1.43.8.2.1.10',
+  inputStatus: '1.3.6.1.2.1.43.8.2.1.11',
+  /** prtInputMediaName — the paper loaded, e.g. "A4" or "Letter". */
+  inputMediaName: '1.3.6.1.2.1.43.8.2.1.12',
+  inputName: '1.3.6.1.2.1.43.8.2.1.13',
+  inputDescription: '1.3.6.1.2.1.43.8.2.1.18',
+
+  /** prtCoverTable — walked, one row per door, lid or interlock. */
+  coverDescription: '1.3.6.1.2.1.43.6.1.1.2',
+  coverStatus: '1.3.6.1.2.1.43.6.1.1.3',
   /** prtMarkerColorantValue — the colour name a supply row points at. */
   colorantValue: '1.3.6.1.2.1.43.12.1.1.4',
   /** prtMarkerSuppliesColorantIndex — links a supply row to a colorant row. */
   suppliesColorantIndex: '1.3.6.1.2.1.43.11.1.1.3',
+
+  /** prtOutputTable — walked, one row per output bin or finisher tray. */
+  outputMaxCapacity: '1.3.6.1.2.1.43.9.2.1.4',
+  outputRemainingCapacity: '1.3.6.1.2.1.43.9.2.1.5',
+  outputName: '1.3.6.1.2.1.43.9.2.1.7',
+  outputDescription: '1.3.6.1.2.1.43.9.2.1.12',
+
+  /**
+   * prtAlertTable — the printer's own list of what is wrong, in its own words.
+   *
+   * This is the only branch that can name *which* consumable is low. Everything
+   * else says only that one of them is, which leaves the user staring at an
+   * alarm with nothing to act on.
+   */
+  alertSeverity: '1.3.6.1.2.1.43.18.1.1.2',
+  alertGroup: '1.3.6.1.2.1.43.18.1.1.4',
+  alertCode: '1.3.6.1.2.1.43.18.1.1.7',
+  alertDescription: '1.3.6.1.2.1.43.18.1.1.8',
 } as const;
+
+/**
+ * hrDeviceStatus enumeration (RFC 2790).
+ *
+ * Only `down` is acted on. `warning` covers everything from a low cartridge to a
+ * cover left ajar, so promoting it to a status of its own would replace a useful
+ * "Ready" with a permanent "Warning" on any printer that is merely low on toner.
+ */
+export const DEVICE_STATUS: Record<number, 'unknown' | 'running' | 'warning' | 'testing' | 'down'> = {
+  1: 'unknown',
+  2: 'running',
+  3: 'warning',
+  4: 'testing',
+  5: 'down',
+};
 
 /** hrPrinterStatus enumeration (RFC 2790). */
 export const PRINTER_STATUS: Record<number, PrinterStatus> = {
@@ -83,6 +141,21 @@ export const SUPPLY_TYPE: Record<number, string> = {
   31: 'paperWrap', 32: 'staples', 33: 'inserts', 34: 'covers',
 };
 
+/**
+ * prtMarkerSuppliesSupplyUnit. Only `percent` changes any behaviour, but the
+ * rest are named so the settings page can say "48 impressions" rather than
+ * leaving a user to guess what 48 means.
+ */
+export const SUPPLY_UNIT: Record<number, string> = {
+  1: 'other', 2: 'unknown', 3: 'tenThousandthsOfInches', 4: 'micrometers',
+  7: 'impressions', 8: 'sheets', 11: 'hours', 12: 'thousandthsOfOunces',
+  13: 'tenthsOfGrams', 14: 'hundredthsOfFluidOunces', 15: 'tenthsOfMilliliters',
+  16: 'feet', 17: 'meters', 18: 'items', 19: 'percent',
+};
+
+/** prtMarkerSuppliesSupplyUnit value for a level that is already a percentage. */
+export const UNIT_PERCENT = 19;
+
 /** Types whose level counts up as they fill rather than down as they drain. */
 const WASTE_TYPES = new Set(['wasteToner', 'wasteInk', 'wasteWax', 'wasteWater', 'wastePaper']);
 
@@ -114,6 +187,19 @@ export interface Supply {
   someRemaining: boolean;
   /** True for waste tanks and other receptacles. */
   isReceptacle: boolean;
+  /**
+   * prtMarkerSuppliesLevel exactly as the printer sent it, sentinels included.
+   *
+   * Kept alongside the derived percentage because the two disagree exactly when
+   * something is wrong — a printer reporting a level against a capacity we
+   * misread is invisible in `percent` and obvious here. The settings page shows
+   * it so a user can report what their printer actually said.
+   */
+  level: number;
+  /** prtMarkerSuppliesMaxCapacity as sent, for the same reason. */
+  maxCapacity: number;
+  /** A {@link SUPPLY_UNIT} name — what {@link Supply.level} is counted in. */
+  unit: string;
 }
 
 /**
@@ -167,14 +253,240 @@ export function classifySupplyColour(
  * inverted here so that every {@link Supply.percent} in the app means the same
  * thing: how much headroom is left before the user must act.
  */
-export function supplyPercent(level: number, maxCapacity: number, isReceptacle: boolean): number | null {
+export function supplyPercent(
+  level: number,
+  maxCapacity: number,
+  isReceptacle: boolean,
+  unit: string = 'unknown',
+): number | null {
   if (level === LEVEL_OTHER || level === LEVEL_UNKNOWN || level === LEVEL_SOME_REMAINING) return null;
   if (level < 0) return null;
-  // -1 (other) and -2 (unknown) capacities give no scale to divide by.
-  if (maxCapacity <= 0) return null;
 
-  const filled = Math.min(100, Math.round((level / maxCapacity) * 100));
+  // A level already expressed as a percentage needs no scale, and plenty of
+  // printers that report one leave the capacity at -2. Reading those as
+  // "unknown" threw away a level the printer had just told us outright.
+  const scale = maxCapacity > 0 ? maxCapacity : (unit === 'percent' ? 100 : 0);
+  // -1 (other) and -2 (unknown) capacities give no scale to divide by.
+  if (scale <= 0) return null;
+
+  const filled = Math.min(100, Math.round((level / scale) * 100));
   return isReceptacle ? 100 - filled : filled;
+}
+
+/** Maps prtMarkerSuppliesSupplyUnit to a name, defaulting to `unknown`. */
+export function decodeSupplyUnit(value: number | null): string {
+  if (value === null) return 'unknown';
+  return SUPPLY_UNIT[value] ?? 'unknown';
+}
+
+/**
+ * prtOutputRemainingCapacity sentinels. Note that -3 differs in meaning from the
+ * supplies table: here it means the tray can still take at least one more sheet,
+ * which is the whole question being asked.
+ */
+export const OUTPUT_OTHER = -1;
+export const OUTPUT_UNKNOWN = -2;
+export const OUTPUT_ROOM_REMAINING = -3;
+
+/** One decoded row of prtOutputTable. */
+export interface OutputTray {
+  /** The row index within the table. */
+  index: string;
+  /** prtOutputName, falling back to prtOutputDescription, e.g. "Standard Bin". */
+  name: string;
+  /** prtOutputRemainingCapacity as sent, sentinels included. */
+  remaining: number;
+  /** prtOutputMaxCapacity as sent. */
+  maxCapacity: number;
+  /** Percentage of the tray still free, or null when the printer will not say. */
+  percentFree: number | null;
+}
+
+/**
+ * How full the output tray is, in the three steps printers themselves use.
+ *
+ * `unknown` is a real answer, not a failure: plenty of printers have no sheet
+ * sensor in the output bin at all, and guessing "ok" for those would be a lie
+ * that a Flow could act on.
+ */
+export type OutputTrayLevel = 'ok' | 'near_full' | 'full' | 'unknown';
+
+/** Turns a prtOutputTable row into the fraction of the tray still free. */
+export function outputPercentFree(remaining: number, maxCapacity: number): number | null {
+  if (remaining === OUTPUT_ROOM_REMAINING) return null;
+  if (remaining < 0) return null;
+  // -1 means "no restriction" and -2 "unknown"; neither gives a scale to divide by.
+  if (maxCapacity <= 0) return null;
+  return Math.max(0, Math.min(100, Math.round((remaining / maxCapacity) * 100)));
+}
+
+/** Below this much free space the tray is called near-full. */
+const NEAR_FULL_PERCENT = 50;
+
+/**
+ * Decides how full the output tray is.
+ *
+ * The error bits win over the capacity numbers because they are what the printer
+ * itself decided to raise: a printer that says `outputFull` is full whatever its
+ * sheet count claims, and many printers report only the bits.
+ *
+ * When several trays are reported the fullest one wins, since that is the one
+ * the user has to go and empty.
+ */
+export function classifyOutputTray(
+  trays: readonly OutputTray[],
+  errors: readonly string[],
+): OutputTrayLevel {
+  if (errors.includes('outputFull')) return 'full';
+  if (errors.includes('outputNearFull')) return 'near_full';
+
+  let fullest: number | null = null;
+  for (const tray of trays) {
+    if (tray.percentFree === null) continue;
+    if (fullest === null || tray.percentFree < fullest) fullest = tray.percentFree;
+  }
+
+  if (fullest === null) {
+    // No usable number anywhere. A tray that says "room for at least one more"
+    // is still a genuine answer; anything else is the printer declining to say.
+    return trays.some((t) => t.remaining === OUTPUT_ROOM_REMAINING) ? 'ok' : 'unknown';
+  }
+  if (fullest <= 0) return 'full';
+  if (fullest < NEAR_FULL_PERCENT) return 'near_full';
+  return 'ok';
+}
+
+/**
+ * prtInputCurrentLevel sentinels, which mirror the supplies table but are worth
+ * naming separately: -3 here means the tray still holds at least one sheet,
+ * which is a perfectly good answer to "can it print?".
+ */
+export const INPUT_OTHER = -1;
+export const INPUT_UNKNOWN = -2;
+export const INPUT_SHEETS_REMAINING = -3;
+
+/** One decoded row of prtInputTable. */
+export interface InputTray {
+  /** The row index within the table. */
+  index: string;
+  /** prtInputName, falling back to prtInputDescription, e.g. "Tray 1". */
+  name: string;
+  /** prtInputMediaName, e.g. "A4". Empty when the printer does not say. */
+  media: string;
+  /** prtInputCurrentLevel as sent, sentinels included. */
+  level: number;
+  /** prtInputMaxCapacity as sent. */
+  maxCapacity: number;
+  /** Percentage of paper left, or null when the printer will not say. */
+  percent: number | null;
+}
+
+/** Turns a prtInputTable row into the percentage of paper still in the tray. */
+export function inputPercent(level: number, maxCapacity: number): number | null {
+  if (level < 0) return null;
+  // -1 means the tray places no limit on this, -2 that it cannot tell.
+  if (maxCapacity <= 0) return null;
+  return Math.max(0, Math.min(100, Math.round((level / maxCapacity) * 100)));
+}
+
+/**
+ * Whether any tray is out of paper or nearly so.
+ *
+ * The error bits are checked first because they are the printer's own verdict,
+ * and because a printer with no level sensor still raises them. A tray reporting
+ * `-3` — at least one sheet left — deliberately does not count as low: it is the
+ * answer of a printer that has paper and no way to weigh it.
+ */
+export function isPaperLow(
+  trays: readonly InputTray[],
+  errors: readonly string[],
+  thresholdPercent: number,
+): boolean {
+  if (errors.includes('noPaper') || errors.includes('lowPaper') || errors.includes('inputTrayEmpty')) {
+    return true;
+  }
+  return trays.some((t) => t.percent !== null && t.percent <= thresholdPercent);
+}
+
+/** prtCoverStatus (RFC 3805). Interlocks are doors too, from the user's side. */
+export const COVER_STATUS: Record<number, 'other' | 'open' | 'closed'> = {
+  1: 'other',
+  3: 'open',
+  4: 'closed',
+  5: 'open',
+  6: 'closed',
+};
+
+/** One decoded row of prtCoverTable. */
+export interface PrinterCover {
+  /** prtCoverDescription, e.g. "Front Door". */
+  description: string;
+  open: boolean;
+}
+
+/**
+ * Whether any door, lid or interlock is open.
+ *
+ * Falls back to the `doorOpen` error bit, which several printers raise without
+ * ever populating a cover table.
+ */
+export function isCoverOpen(covers: readonly PrinterCover[], errors: readonly string[]): boolean {
+  return covers.some((c) => c.open) || errors.includes('doorOpen');
+}
+
+/** Maps prtCoverStatus to open/closed, defaulting to closed for values we do not know. */
+export function decodeCoverStatus(value: number | null): boolean {
+  if (value === null) return false;
+  return COVER_STATUS[value] === 'open';
+}
+
+/** prtAlertSeverityLevel (RFC 3805). Both warning flavours mean the same to us. */
+export const ALERT_SEVERITY: Record<number, AlertSeverity> = {
+  1: 'other',
+  3: 'critical',
+  4: 'warning',
+  5: 'warning',
+};
+
+export type AlertSeverity = 'other' | 'critical' | 'warning';
+
+/** One decoded row of prtAlertTable. */
+export interface PrinterAlert {
+  severity: AlertSeverity;
+  /** prtAlertCode, kept raw: the enumeration is long and vendor-extended. */
+  code: number | null;
+  /** prtAlertGroup, i.e. which sub-unit the alert is about. */
+  group: number | null;
+  /** The printer's own wording, e.g. "88 Cartridge low". May be empty. */
+  description: string;
+}
+
+/** Maps prtAlertSeverityLevel to a name, defaulting to `other`. */
+export function decodeAlertSeverity(value: number | null): AlertSeverity {
+  if (value === null) return 'other';
+  return ALERT_SEVERITY[value] ?? 'other';
+}
+
+/**
+ * Reduces the alert table to the one line worth showing next to an alarm.
+ *
+ * Rows without a description are dropped rather than rendered as an empty
+ * bullet: the MIB explicitly allows a null string, and a printer that sends one
+ * has told us nothing. Duplicates are collapsed because a printer with two trays
+ * routinely raises the same alert twice.
+ */
+export function summariseAlerts(alerts: readonly PrinterAlert[]): string | null {
+  const seen = new Set<string>();
+  const lines: string[] = [];
+
+  for (const alert of alerts) {
+    const text = alert.description.trim();
+    if (text.length === 0 || seen.has(text)) continue;
+    seen.add(text);
+    lines.push(text);
+  }
+
+  return lines.length > 0 ? lines.join(' · ') : null;
 }
 
 /**

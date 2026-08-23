@@ -12,15 +12,26 @@ The manufacturer is detected from `sysObjectID` and used only to name the device
 
 | Capability | Source |
 |---|---|
-| One level per cartridge or tank | `prtMarkerSuppliesTable`, discovered by walk |
-| Status: ready, printing, warming up, offline | `hrPrinterStatus` |
+| One level per cartridge, tank or maintenance unit | `prtMarkerSuppliesTable`, discovered by walk |
+| One level per paper tray, named after its tray and paper | `prtInputTable` |
+| Output tray: OK, half full, full | `prtOutputTable` plus the output error bits |
+| Status: ready, printing, warming up, offline | `hrPrinterStatus`, `hrDeviceStatus` |
 | Panel message, e.g. "Ready" | `prtConsoleDisplayBufferText` |
+| Printer alerts, in the printer's own words | `prtAlertTable` |
 | Lifetime page count | `prtMarkerLifeCount` |
-| Supply-low alarm | derived, threshold set per device |
+| Supply-low alarm, naming the consumable | derived, threshold set per device |
+| Paper-low alarm | `prtInputTable` plus the paper error bits |
+| Cover-open alarm | `prtCoverTable` |
 | Printer-error alarm | `hrPrinterDetectedErrorState`, blocking flags only |
 
 The number of supplies is discovered, never assumed: a four-cartridge office printer
 and a nine-cartridge photo printer both work without a code change.
+
+All of it comes from the standard Printer MIB, which is why one driver serves every
+brand. The one known gap is Brother, which leaves the standard supply table at 0 or
+100 and puts the real percentages in a private, reverse-engineered OctetString —
+implementing that without a Brother on hand would mean guessing at levels, which is
+worse than reporting none.
 
 ### Finding a printer
 

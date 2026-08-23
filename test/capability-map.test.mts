@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { hasBlockingError, isSupplyLow, planCapabilities } from '../lib/capability-map.mjs';
-import type { Supply, SupplyColour } from '../lib/printer-mib.mjs';
+import {
+  hasBlockingError,
+  isSupplyLow,
+  lowSupplyNames,
+  planCapabilities,
+} from '../lib/capability-map.mjs';
+import type { InputTray, Supply, SupplyColour } from '../lib/printer-mib.mjs';
 import type { PrinterSnapshot } from '../lib/printer-reader.mjs';
 
 function supply(colour: SupplyColour, percent: number | null, description = ''): Supply {
@@ -14,6 +19,20 @@ function supply(colour: SupplyColour, percent: number | null, description = ''):
     percent,
     someRemaining: false,
     isReceptacle: colour === 'waste',
+    level: percent ?? -2,
+    maxCapacity: percent === null ? -2 : 100,
+    unit: 'percent',
+  };
+}
+
+function tray(name: string, percent: number | null, media = 'A4'): InputTray {
+  return {
+    index: '1.1',
+    name,
+    media,
+    level: percent ?? -2,
+    maxCapacity: percent === null ? -2 : 100,
+    percent,
   };
 }
 
@@ -28,6 +47,10 @@ function snapshot(overrides: Partial<PrinterSnapshot> = {}): PrinterSnapshot {
     pageCount: 1116,
     errors: [],
     supplies: [],
+    outputTrays: [],
+    inputTrays: [],
+    covers: [],
+    alerts: [],
     ...overrides,
   };
 }
@@ -84,11 +107,83 @@ describe('planCapabilities', () => {
   });
 
   it('reports supplies it had no slot left for instead of dropping them silently', () => {
-    const many = Array.from({ length: 6 }, (_, i) => supply('other', 50, `Unit ${i}`));
+    const many = Array.from({ length: 10 }, (_, i) => supply('other', 50, `Unit ${i}`));
     const plan = planCapabilities(snapshot({ supplies: many }), 15);
 
-    assert.equal(plan.capabilities.filter((c) => c.startsWith('supply_other_')).length, 4);
+    assert.equal(plan.capabilities.filter((c) => c.startsWith('supply_other_')).length, 8);
     assert.equal(plan.dropped.length, 2);
+  });
+
+  it('gives a laser its whole maintenance kit a row each', () => {
+    // The reason the slot count went from four to eight: none of these carries a
+    // colour, so before the change two of them fell off the end while still
+    // being counted by the low-supply alarm.
+    const lexmark = [
+      supply('black', 40, 'Black Cartridge'),
+      supply('waste', 90, 'Waste Toner Bottle'),
+      supply('other', 60, 'Photoconductor Unit'),
+      supply('other', 70, 'Fuser'),
+      supply('other', 80, 'Transfer Module'),
+      supply('other', 12, 'Maintenance Kit'),
+      supply('other', 95, 'Separator Roller'),
+    ];
+    const plan = planCapabilities(snapshot({ supplies: lexmark }), 15);
+
+    assert.equal(plan.dropped.length, 0);
+    assert.deepEqual(plan.lowSupplies, ['Maintenance Kit']);
+  });
+
+  it('gives each paper tray a row named after the tray and its paper', () => {
+    const plan = planCapabilities(
+      snapshot({ inputTrays: [tray('Tray 1', 80), tray('Multipurpose Feeder', 0, '')] }),
+      15,
+    );
+
+    assert.deepEqual(plan.capabilities.slice(0, 2), ['printer_tray_1', 'printer_tray_2']);
+    assert.equal(plan.values[0]?.value, 80);
+    assert.equal(plan.titles.get('printer_tray_1'), 'Tray 1 · A4');
+    // No media name means no separator dangling off the end of the title.
+    assert.equal(plan.titles.get('printer_tray_2'), 'Multipurpose Feeder');
+  });
+
+  it('raises the paper alarm from the printer, not only from a level', () => {
+    // A printer with no sheet sensor still raises the bit, and that is the only
+    // warning its owner will ever get.
+    const plan = planCapabilities(snapshot({ errors: ['lowPaper'] }), 15);
+    assert.equal(plan.values.find((v) => v.id === 'alarm_paper_low')?.value, true);
+  });
+
+  it('omits the output tray on a printer that cannot sense one', () => {
+    const plan = planCapabilities(snapshot(), 15);
+    assert.ok(!plan.capabilities.includes('printer_output_tray'));
+  });
+
+  it('shows the output tray when the printer reports one', () => {
+    const plan = planCapabilities(snapshot({ errors: ['outputNearFull'] }), 15);
+    assert.equal(plan.values.find((v) => v.id === 'printer_output_tray')?.value, 'near_full');
+  });
+
+  it('omits the cover alarm unless the printer has a cover it can sense', () => {
+    const withCover = planCapabilities(
+      snapshot({ covers: [{ description: 'Front Door', open: true }] }),
+      15,
+    );
+    assert.equal(withCover.values.find((v) => v.id === 'alarm_cover_open')?.value, true);
+    assert.ok(!planCapabilities(snapshot(), 15).capabilities.includes('alarm_cover_open'));
+  });
+
+  it('passes the printer’s own alert wording through when there is any', () => {
+    const plan = planCapabilities(
+      snapshot({
+        alerts: [
+          { severity: 'warning', code: 1101, group: 9, description: '84 Photoconductor low' },
+          { severity: 'warning', code: 1101, group: 9, description: '' },
+        ],
+      }),
+      15,
+    );
+    assert.equal(plan.values.find((v) => v.id === 'printer_alert')?.value, '84 Photoconductor low');
+    assert.ok(!planCapabilities(snapshot(), 15).capabilities.includes('printer_alert'));
   });
 
   it('passes an unknown level through as null rather than zero', () => {
@@ -125,6 +220,23 @@ describe('isSupplyLow', () => {
   it('counts a nearly-full waste tank, which stops printing just as surely', () => {
     // percent is headroom left, so 5 means the tank is 95 % full.
     assert.equal(isSupplyLow([supply('waste', 5)], 15), true);
+  });
+});
+
+describe('lowSupplyNames', () => {
+  it('names the supply the printer names, so the warning says what to buy', () => {
+    assert.deepEqual(
+      lowSupplyNames([supply('other', 8, 'Waste Toner Bottle'), supply('black', 60, 'Black')], 15),
+      ['Waste Toner Bottle'],
+    );
+  });
+
+  it('falls back to the colour when the printer gave no description', () => {
+    assert.deepEqual(lowSupplyNames([supply('cyan', 3)], 15), ['cyan']);
+  });
+
+  it('is empty when nothing is low, so no warning is shown', () => {
+    assert.deepEqual(lowSupplyNames([supply('black', 60)], 15), []);
   });
 });
 

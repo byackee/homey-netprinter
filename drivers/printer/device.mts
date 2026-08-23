@@ -36,6 +36,8 @@ export default class PrinterDevice extends Homey.Device {
   private lowSupplies = new Set<string>();
   /** Titles already stored, so a capability is only renamed when it really changes. */
   private appliedTitles = new Map<string, string>();
+  /** The warning currently on the device, so it is rewritten only when it changes. */
+  private lastWarning: string | null = null;
 
   override async onInit(): Promise<void> {
     this.buildReader();
@@ -137,6 +139,8 @@ export default class PrinterDevice extends Homey.Device {
     // read rather than a printer with no cartridges. Every printer has at least one.
     await this.syncCapabilities(plan.capabilities, snapshot.supplies.length > 0);
 
+    await this.reportLowSupplies(plan.lowSupplies);
+
     // The printer's own wording names the exact cartridge to reorder. Writing it
     // is persistent, and these titles change only when a cartridge is replaced by
     // a different type — so it is written on change, not on every poll, which
@@ -157,6 +161,24 @@ export default class PrinterDevice extends Homey.Device {
   }
 
   /**
+   * Puts the names of the low supplies on the device itself.
+   *
+   * The alarm capability is a bare boolean: it can say that something is low and
+   * never which thing. On a laser that reports a photoconductor and a waste
+   * bottle alongside its toner, that leaves the user looking at a lit alarm with
+   * every level on screen reading fine. Homey's own warning banner is the one
+   * place a device can say why, so the names go there.
+   */
+  private async reportLowSupplies(low: string[]): Promise<void> {
+    const message = low.length > 0 ? this.homey.__('device.supply_low', { supplies: low.join(', ') }) : null;
+    if (message === this.lastWarning) return;
+    this.lastWarning = message;
+
+    const write = message === null ? this.unsetWarning() : this.setWarning(message);
+    await write.catch((e: Error) => this.error(`Could not set the warning: ${e.message}`));
+  }
+
+  /**
    * Brings the device's capability list in line with what the printer reports.
    *
    * `removeCapability` destroys the capability's Insights history, and adding it
@@ -166,15 +188,16 @@ export default class PrinterDevice extends Homey.Device {
    * would quietly erase weeks of graphs.
    *
    * So a capability is only removed when the reading it belongs to was actually
-   * conclusive: supply rows when the supplies table was read successfully, and
-   * never the scalar rows, whose absence only ever means the printer stayed
-   * silent about them this time.
+   * conclusive: supply and tray rows when the supplies table was read
+   * successfully, and never the scalar rows, whose absence only ever means the
+   * printer stayed silent about them this time.
    */
   private async syncCapabilities(wanted: string[], suppliesWereRead: boolean): Promise<void> {
     const current = this.getCapabilities();
 
     if (suppliesWereRead) {
-      const stale = current.filter((c) => c.startsWith('supply_') && !wanted.includes(c));
+      const stale = current.filter((c) =>
+        (c.startsWith('supply_') || c.startsWith('printer_tray_')) && !wanted.includes(c));
       for (const capability of stale) {
         await this.removeCapability(capability).catch((e: Error) =>
           this.error(`Could not remove ${capability}: ${e.message}`));

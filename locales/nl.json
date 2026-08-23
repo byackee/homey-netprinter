@@ -1,6 +1,7 @@
 {
   "device": {
-    "unreachable": "De printer reageert niet op het netwerk. Controleer of hij aan staat en of zijn IP-adres nog klopt."
+    "unreachable": "De printer reageert niet op het netwerk. Controleer of hij aan staat en of zijn IP-adres nog klopt.",
+    "supply_low": "Laag: __supplies__"
   },
   "pair": {
     "title": "Zoek je printer",
@@ -40,6 +41,11 @@
     "no_devices": "Nog geen printer gekoppeld.",
     "loading": "Printers uitlezen…",
     "pages": "pagina's",
-    "unknown": "onbekend"
+    "unknown": "onbekend",
+    "tray": "Lade",
+    "output_tray": "Uitvoerlade",
+    "tray_ok": "OK",
+    "tray_near_full": "half vol",
+    "tray_full": "vol"
   }
 }

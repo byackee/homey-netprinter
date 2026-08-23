@@ -12,6 +12,7 @@ import type Homey from 'homey';
 import type NetworkPrinterApp from './app.mjs';
 
 import { PrinterReader } from './lib/printer-reader.mjs';
+import { classifyOutputTray } from './lib/printer-mib.mjs';
 import { negotiateVersion } from './lib/snmp-client.mjs';
 import { subnetOf } from './lib/network-scan.mjs';
 import { vendorName } from './lib/vendors.mjs';
@@ -44,7 +45,25 @@ interface DeviceReport {
     display: string | null;
     pages: number | null;
     errors: string[];
-    supplies: Array<{ description: string; colour: string; percent: number | null }>;
+    /**
+     * The raw level and capacity travel alongside the percentage on purpose. A
+     * printer whose alarm fires while every visible level reads fine is exactly
+     * the case the percentage cannot explain, and the two numbers it was derived
+     * from can.
+     */
+    supplies: Array<{
+      description: string;
+      colour: string;
+      percent: number | null;
+      level: number;
+      maxCapacity: number;
+      unit: string;
+    }>;
+    trays: Array<{ name: string; media: string; percent: number | null }>;
+    outputTray: string;
+    covers: Array<{ description: string; open: boolean }>;
+    /** What the printer itself says is wrong, in its own words. */
+    alerts: string[];
   };
   error?: string;
 }
@@ -98,7 +117,20 @@ async function getDiagnostics({ homey }: Request): Promise<{
             description: s.description,
             colour: s.colour,
             percent: s.percent,
+            level: s.level,
+            maxCapacity: s.maxCapacity,
+            unit: s.unit,
           })),
+          trays: snapshot.inputTrays.map((t) => ({
+            name: t.name,
+            media: t.media,
+            percent: t.percent,
+          })),
+          outputTray: classifyOutputTray(snapshot.outputTrays, snapshot.errors),
+          covers: snapshot.covers.map((c) => ({ description: c.description, open: c.open })),
+          alerts: snapshot.alerts
+            .map((a) => a.description.trim())
+            .filter((d) => d.length > 0),
         },
       };
     } catch (error) {

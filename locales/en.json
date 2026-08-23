@@ -1,6 +1,7 @@
 {
   "device": {
-    "unreachable": "The printer is not answering on the network. Check that it is powered on and that its IP address is still correct."
+    "unreachable": "The printer is not answering on the network. Check that it is powered on and that its IP address is still correct.",
+    "supply_low": "Low: __supplies__"
   },
   "pair": {
     "title": "Find your printer",
@@ -40,6 +41,11 @@
     "no_devices": "No printer paired yet.",
     "loading": "Reading printers…",
     "pages": "pages",
-    "unknown": "unknown"
+    "unknown": "unknown",
+    "tray": "Tray",
+    "output_tray": "Output tray",
+    "tray_ok": "OK",
+    "tray_near_full": "half full",
+    "tray_full": "full"
   }
 }

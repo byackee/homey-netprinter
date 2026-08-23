@@ -77,13 +77,15 @@ export default class PrinterDriver extends Homey.Driver {
       });
 
     // The picker lists only the supplies this particular printer actually has.
+    // Paper trays are offered alongside them: they are levels measured the same
+    // way, and "warn me below 20 %" is the same Flow whether it is toner or A4.
     this.homey.flow
       .getConditionCard('supply_below')
       .registerArgumentAutocompleteListener('capability', async (query, args: { device: PrinterDevice }) => {
         const wanted = query.toLowerCase();
         return args.device
           .getCapabilities()
-          .filter((c) => c.startsWith('supply_'))
+          .filter((c) => c.startsWith('supply_') || c.startsWith('printer_tray_'))
           .map((id) => ({ id, name: this.capabilityLabel(args.device, id) }))
           .filter((item) => item.name.toLowerCase().includes(wanted));
       });

@@ -1,0 +1,9 @@
+{
+  "type": "string",
+  "title": { "en": "Printer alerts", "fr": "Alertes imprimante", "nl": "Printermeldingen" },
+  "uiComponent": "sensor",
+  "getable": true,
+  "setable": false,
+  "insights": false,
+  "icon": "/assets/capability/printer_alert.svg"
+}

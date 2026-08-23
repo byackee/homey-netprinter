@@ -93,8 +93,33 @@
         const width = (supply.percent === null || supply.percent === undefined) ? 0 : supply.percent;
         html +=
           '<tr><td>' + esc(supply.description || supply.colour) +
+          rawLevel(supply) +
           '<div class="bar"><span style="width:' + width + '%"></span></div></td>' +
           levelCell(supply.percent) + '</tr>';
+      }
+      return html + '</table>';
+    }
+
+    /**
+     * The level and capacity exactly as the printer sent them.
+     *
+     * This is the line that answers "why is the alarm on when every level reads
+     * fine": a percentage is only ever as good as the two numbers behind it, and
+     * those numbers are otherwise invisible to anyone reporting a problem.
+     */
+    function rawLevel(supply) {
+      if (supply.level === undefined) return '';
+      const unit = supply.unit && supply.unit !== 'unknown' ? ' ' + supply.unit : '';
+      return '<div class="sub">' + esc(supply.level + ' / ' + supply.maxCapacity + unit) + '</div>';
+    }
+
+    function traysTable(trays) {
+      if (!trays || !trays.length) return '';
+      let html = '<table>';
+      for (const tray of trays) {
+        const label = [tray.name, tray.media].filter(Boolean).join(' · ');
+        html += '<tr><td>' + esc(label || Homey.__('settings.tray')) + '</td>' +
+          levelCell(tray.percent) + '</tr>';
       }
       return html + '</table>';
     }
@@ -124,11 +149,21 @@
           const bits = [r.status];
           if (r.display) bits.push('"' + r.display + '"');
           if (r.pages !== null) bits.push(r.pages + ' ' + Homey.__('settings.pages'));
+          if (r.outputTray && r.outputTray !== 'unknown') {
+            bits.push(Homey.__('settings.output_tray') + ': ' + Homey.__('settings.tray_' + r.outputTray));
+          }
+          const openCovers = (r.covers || []).filter((c) => c.open).map((c) => c.description);
 
           return '<div class="card">' + head +
             '<div class="sub">' + esc(bits.join(' · ')) + '</div>' +
+            // The printer's own words come first: on a machine whose alarm has no
+            // visible cause, this is the line that names it.
+            ((r.alerts || []).length
+              ? '<div class="bad">' + esc(r.alerts.join(' · ')) + '</div>' : '') +
             (r.errors.length ? '<div class="bad">' + esc(r.errors.join(', ')) + '</div>' : '') +
+            (openCovers.length ? '<div class="bad">' + esc(openCovers.join(', ')) + '</div>' : '') +
             suppliesTable(r.supplies) +
+            traysTable(r.trays) +
             '</div>';
         }).join('');
       } catch (error) {

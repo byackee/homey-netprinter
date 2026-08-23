@@ -1,0 +1,12 @@
+{
+  "type": "boolean",
+  "title": { "en": "Cover open", "fr": "Capot ouvert", "nl": "Klep open" },
+  "uiComponent": "sensor",
+  "uiQuickAction": false,
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "insightsTitleTrue": { "en": "A cover was opened", "fr": "Un capot a été ouvert", "nl": "Een klep is geopend" },
+  "insightsTitleFalse": { "en": "Every cover closed", "fr": "Tous les capots sont fermés", "nl": "Alle kleppen gesloten" },
+  "icon": "/assets/capability/alarm_cover_open.svg"
+}

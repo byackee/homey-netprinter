@@ -1,0 +1,12 @@
+{
+  "type": "boolean",
+  "title": { "en": "Paper low", "fr": "Papier bas", "nl": "Papier bijna op" },
+  "uiComponent": "sensor",
+  "uiQuickAction": false,
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "insightsTitleTrue": { "en": "A tray ran low on paper", "fr": "Un bac manque de papier", "nl": "Een lade raakt zonder papier" },
+  "insightsTitleFalse": { "en": "Paper refilled", "fr": "Papier rechargé", "nl": "Papier bijgevuld" },
+  "icon": "/assets/capability/alarm_paper_low.svg"
+}

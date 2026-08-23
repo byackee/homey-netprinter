@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "com.dataweavelabs.netprinter",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "compatibility": ">=12.0.1",
   "sdk": 3,
   "platforms": [
@@ -555,6 +555,54 @@
     }
   ],
   "capabilities": {
+    "alarm_cover_open": {
+      "type": "boolean",
+      "title": {
+        "en": "Cover open",
+        "fr": "Capot ouvert",
+        "nl": "Klep open"
+      },
+      "uiComponent": "sensor",
+      "uiQuickAction": false,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "insightsTitleTrue": {
+        "en": "A cover was opened",
+        "fr": "Un capot a été ouvert",
+        "nl": "Een klep is geopend"
+      },
+      "insightsTitleFalse": {
+        "en": "Every cover closed",
+        "fr": "Tous les capots sont fermés",
+        "nl": "Alle kleppen gesloten"
+      },
+      "icon": "/assets/capability/alarm_cover_open.svg"
+    },
+    "alarm_paper_low": {
+      "type": "boolean",
+      "title": {
+        "en": "Paper low",
+        "fr": "Papier bas",
+        "nl": "Papier bijna op"
+      },
+      "uiComponent": "sensor",
+      "uiQuickAction": false,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "insightsTitleTrue": {
+        "en": "A tray ran low on paper",
+        "fr": "Un bac manque de papier",
+        "nl": "Een lade raakt zonder papier"
+      },
+      "insightsTitleFalse": {
+        "en": "Paper refilled",
+        "fr": "Papier rechargé",
+        "nl": "Papier bijgevuld"
+      },
+      "icon": "/assets/capability/alarm_paper_low.svg"
+    },
     "alarm_printer_error": {
       "type": "boolean",
       "title": {
@@ -603,6 +651,19 @@
       },
       "icon": "/assets/capability/alarm_supply_low.svg"
     },
+    "printer_alert": {
+      "type": "string",
+      "title": {
+        "en": "Printer alerts",
+        "fr": "Alertes imprimante",
+        "nl": "Printermeldingen"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": false,
+      "icon": "/assets/capability/printer_alert.svg"
+    },
     "printer_message": {
       "type": "string",
       "title": {
@@ -615,6 +676,45 @@
       "setable": false,
       "insights": false,
       "icon": "/assets/capability/printer_message.svg"
+    },
+    "printer_output_tray": {
+      "type": "enum",
+      "title": {
+        "en": "Output tray",
+        "fr": "Bac de sortie",
+        "nl": "Uitvoerlade"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": false,
+      "icon": "/assets/capability/printer_output_tray.svg",
+      "values": [
+        {
+          "id": "ok",
+          "title": {
+            "en": "OK",
+            "fr": "OK",
+            "nl": "OK"
+          }
+        },
+        {
+          "id": "near_full",
+          "title": {
+            "en": "Half full",
+            "fr": "À moitié plein",
+            "nl": "Half vol"
+          }
+        },
+        {
+          "id": "full",
+          "title": {
+            "en": "Full",
+            "fr": "Plein",
+            "nl": "Vol"
+          }
+        }
+      ]
     },
     "printer_pages": {
       "type": "number",
@@ -698,6 +798,82 @@
           }
         }
       ]
+    },
+    "printer_tray_1": {
+      "type": "number",
+      "title": {
+        "en": "Tray 1",
+        "fr": "Bac 1",
+        "nl": "Lade 1"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/printer_tray.svg"
+    },
+    "printer_tray_2": {
+      "type": "number",
+      "title": {
+        "en": "Tray 2",
+        "fr": "Bac 2",
+        "nl": "Lade 2"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/printer_tray.svg"
+    },
+    "printer_tray_3": {
+      "type": "number",
+      "title": {
+        "en": "Tray 3",
+        "fr": "Bac 3",
+        "nl": "Lade 3"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/printer_tray.svg"
+    },
+    "printer_tray_4": {
+      "type": "number",
+      "title": {
+        "en": "Tray 4",
+        "fr": "Bac 4",
+        "nl": "Lade 4"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/printer_tray.svg"
     },
     "supply_black": {
       "type": "number",
@@ -952,6 +1128,82 @@
         "en": "Supply 4",
         "fr": "Consommable 4",
         "nl": "Verbruiksartikel 4"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_5": {
+      "type": "number",
+      "title": {
+        "en": "Supply 5",
+        "fr": "Consommable 5",
+        "nl": "Verbruiksartikel 5"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_6": {
+      "type": "number",
+      "title": {
+        "en": "Supply 6",
+        "fr": "Consommable 6",
+        "nl": "Verbruiksartikel 6"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_7": {
+      "type": "number",
+      "title": {
+        "en": "Supply 7",
+        "fr": "Consommable 7",
+        "nl": "Verbruiksartikel 7"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_8": {
+      "type": "number",
+      "title": {
+        "en": "Supply 8",
+        "fr": "Consommable 8",
+        "nl": "Verbruiksartikel 8"
       },
       "uiComponent": "sensor",
       "getable": true,

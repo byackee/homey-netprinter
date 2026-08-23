@@ -1,0 +1,14 @@
+{
+  "type": "enum",
+  "title": { "en": "Output tray", "fr": "Bac de sortie", "nl": "Uitvoerlade" },
+  "uiComponent": "sensor",
+  "getable": true,
+  "setable": false,
+  "insights": false,
+  "icon": "/assets/capability/printer_output_tray.svg",
+  "values": [
+    { "id": "ok", "title": { "en": "OK", "fr": "OK", "nl": "OK" } },
+    { "id": "near_full", "title": { "en": "Half full", "fr": "À moitié plein", "nl": "Half vol" } },
+    { "id": "full", "title": { "en": "Full", "fr": "Plein", "nl": "Vol" } }
+  ]
+}

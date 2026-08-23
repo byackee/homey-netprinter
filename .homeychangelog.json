@@ -13,5 +13,10 @@
     "en": "First release. Reads ink and toner levels, printer status, panel message and page counter from any network printer that speaks SNMP, and exposes them as Flow cards.",
     "fr": "Première version. Lit les niveaux d’encre et de toner, l’état de l’imprimante, le message du panneau et le compteur de pages sur toute imprimante réseau parlant SNMP, et les expose en cartes Flow.",
     "nl": "Eerste versie. Leest inkt- en tonerniveaus, printerstatus, displaybericht en paginateller van elke netwerkprinter die SNMP spreekt, en biedt ze aan als Flow-kaarten."
+  },
+  "1.0.4": {
+    "en": "Paper trays, output tray, cover and the printer’s own alert text are now read and shown. The low-supply alarm names the consumable behind it, and no longer fires for a consumable that had no row. Capability icons now appear in the mobile app.",
+    "fr": "Les bacs à papier, le bac de sortie, les capots et le texte d’alerte de l’imprimante sont maintenant relevés et affichés. L’alarme de consommable bas nomme le consommable en cause, et ne se déclenche plus pour un consommable sans ligne. Les icônes de capacité s’affichent enfin dans l’app mobile.",
+    "nl": "Papierladen, uitvoerlade, kleppen en de eigen meldingstekst van de printer worden nu uitgelezen en getoond. Het alarm voor laag verbruik noemt het verbruiksartikel erachter, en gaat niet meer af voor een artikel zonder eigen rij. Capability-iconen verschijnen nu ook in de mobiele app."
   }
 }

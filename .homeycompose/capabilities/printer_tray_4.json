@@ -1,0 +1,19 @@
+{
+  "type": "number",
+  "title": {
+    "en": "Tray 4",
+    "fr": "Bac 4",
+    "nl": "Lade 4"
+  },
+  "uiComponent": "sensor",
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "units": {
+    "en": "%"
+  },
+  "min": 0,
+  "max": 100,
+  "decimals": 0,
+  "icon": "/assets/capability/printer_tray.svg"
+}
