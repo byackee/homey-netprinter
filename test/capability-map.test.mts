@@ -193,6 +193,23 @@ describe('planCapabilities', () => {
     assert.equal(plan.values[0]?.value, null);
   });
 
+  it('clears a panel message the printer has stopped reporting', () => {
+    // A user's Lexmark kept showing "Tray 1 Missing" after the tray was back,
+    // because a null message skipped the write instead of blanking the tile.
+    const plan = planCapabilities(snapshot({ displayText: null }), 15);
+    const message = plan.values.find((v) => v.id === 'printer_message');
+
+    assert.equal(message?.value, null, 'the message must be written, not skipped');
+    // Still no row for a printer that has never reported one.
+    assert.ok(!plan.capabilities.includes('printer_message'));
+  });
+
+  it('keeps writing the panel message while the printer reports one', () => {
+    const plan = planCapabilities(snapshot({ displayText: 'Ready' }), 15);
+    assert.equal(plan.values.find((v) => v.id === 'printer_message')?.value, 'Ready');
+    assert.ok(plan.capabilities.includes('printer_message'));
+  });
+
   it('omits the page counter and panel message when the printer has neither', () => {
     const plan = planCapabilities(snapshot({ pageCount: null, displayText: null }), 15);
     assert.ok(!plan.capabilities.includes('printer_pages'));

@@ -216,9 +216,21 @@ export function planCapabilities(snapshot: PrinterSnapshot, threshold: number): 
     addScalar('alarm_cover_open', isCoverOpen(snapshot.covers, snapshot.errors));
   }
 
-  // These two are only worth a row when the printer actually reports them;
-  // an always-empty tile is clutter.
-  if (snapshot.displayText !== null) addScalar('printer_message', snapshot.displayText);
+  // These two are only worth a *row* when the printer actually reports them; an
+  // always-empty tile is clutter on a printer that never says anything.
+  //
+  // The row is a separate question from the value, though, and conflating them
+  // is why a user watched their panel message read "Tray 1 Missing" long after
+  // the tray was back: once the printer stopped reporting a message, the guard
+  // skipped the write entirely and Homey kept the last text for ever. So the
+  // message is always written, blank included, and only the row is conditional.
+  if (snapshot.displayText !== null) capabilities.push('printer_message');
+  values.push({ id: 'printer_message', value: snapshot.displayText });
+
+  // The page count is deliberately not treated the same way. A stale message
+  // asserts a condition that may be false; a stale counter only lags a total
+  // that was true when it was read, and blanking it would chop up its Insights
+  // graph every time the printer declines to answer once.
   if (snapshot.pageCount !== null) addScalar('printer_pages', snapshot.pageCount);
 
   // The output tray only earns a row on printers that can actually sense it.
