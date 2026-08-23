@@ -22,6 +22,22 @@ The manufacturer is detected from `sysObjectID` and used only to name the device
 The number of supplies is discovered, never assumed: a four-cartridge office printer
 and a nine-cartridge photo printer both work without a code change.
 
+### Finding a printer
+
+Two mechanisms, because neither covers everything on its own.
+
+Homey's own mDNS discovery watches `_ipp._tcp`, which AirPrint and Mopria both
+require, so essentially every current network printer announces itself on it.
+Those appear in pairing instantly, and — the real prize — Homey reports when one
+moves, so a DHCP lease change updates the device's address by itself instead of
+leaving it unavailable until someone repairs it by hand.
+
+A subnet sweep then covers the rest: printers with mDNS disabled, or on a network
+where multicast does not carry. It asks each address the same SNMP question the
+app will ask later, so anything it finds is by definition usable. mDNS says a
+printer is *there*; only SNMP says it can be *read*, so discovery results are
+confirmed over SNMP before being offered.
+
 ### Flow cards
 
 - **Trigger** — a supply runs low (fires on the crossing, not on every check);

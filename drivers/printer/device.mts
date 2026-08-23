@@ -250,6 +250,53 @@ export default class PrinterDevice extends Homey.Device {
       .catch((e: Error) => this.error(`status_changed trigger: ${e.message}`));
   }
 
+  /**
+   * Decides whether an mDNS result is this printer.
+   *
+   * The first match is by address, which is all we have when a device was added
+   * by the subnet sweep. From then on the discovery id is remembered, because
+   * the address is exactly the thing that changes when a DHCP lease moves — and
+   * matching on it would lose the printer at the moment we most need to follow it.
+   */
+  override onDiscoveryResult(result: Homey.DiscoveryResult): boolean {
+    const known = this.getStoreValue('discoveryId') as string | undefined;
+    if (known) return known === result.id;
+
+    const address = (result as Homey.DiscoveryResultMDNSSD).address;
+    return typeof address === 'string' && address === this.readSettings().host;
+  }
+
+  /** Called once when the printer is first seen on the network. */
+  override async onDiscoveryAvailable(result: Homey.DiscoveryResult): Promise<void> {
+    await this.setStoreValue('discoveryId', result.id).catch(() => {});
+    await this.adoptDiscoveredAddress(result);
+  }
+
+  /**
+   * Called when the printer turns up at a different address.
+   *
+   * This is the whole point of discovery for this app: a DHCP lease change used
+   * to mean the device went unavailable until the user repaired it by hand.
+   */
+  override async onDiscoveryAddressChanged(result: Homey.DiscoveryResult): Promise<void> {
+    await this.adoptDiscoveredAddress(result);
+  }
+
+  /** Writes a newly discovered address into settings and re-reads the printer. */
+  private async adoptDiscoveredAddress(result: Homey.DiscoveryResult): Promise<void> {
+    const address = (result as Homey.DiscoveryResultMDNSSD).address;
+    if (typeof address !== 'string' || address.length === 0) return;
+    if (address === this.readSettings().host) return;
+
+    this.log(`Discovery moved this printer to ${address}`);
+    await this.setSettings({ host: address }).catch((e: Error) =>
+      this.error(`Could not store the new address: ${e.message}`));
+
+    this.buildReader();
+    this.consecutiveFailures = 0;
+    await this.poll();
+  }
+
   /** Reads the printer now, outside the poll schedule. Backs the "refresh" Flow action. */
   async refreshNow(): Promise<void> {
     await this.poll();

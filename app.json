@@ -416,6 +416,7 @@
           "id": "configure"
         }
       ],
+      "discovery": "printer",
       "id": "printer",
       "settings": [
         {
@@ -1030,6 +1031,15 @@
       "max": 100,
       "decimals": 0,
       "icon": "/assets/capability/supply_ink.svg"
+    }
+  },
+  "discovery": {
+    "printer": {
+      "type": "mdns-sd",
+      "mdns-sd": {
+        "name": "ipp",
+        "protocol": "tcp"
+      }
     }
   }
 }

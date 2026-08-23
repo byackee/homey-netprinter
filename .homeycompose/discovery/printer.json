@@ -1,0 +1,7 @@
+{
+  "type": "mdns-sd",
+  "mdns-sd": {
+    "name": "ipp",
+    "protocol": "tcp"
+  }
+}

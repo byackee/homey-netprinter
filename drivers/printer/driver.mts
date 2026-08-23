@@ -93,24 +93,40 @@ export default class PrinterDriver extends Homey.Driver {
     // request out and leaving the view stuck on "searching" forever. Results are
     // pushed to the view as they arrive and a `scan_done` marks the end.
     session.setHandler('scan', async (): Promise<{ started: boolean }> => {
-      const subnet = await this.localSubnet();
-      if (subnet === null) {
-        this.error('Could not determine the local subnet; offering manual entry only');
-        return { started: false };
-      }
-
       // Addresses already paired are skipped so the list only offers new printers.
       const taken = new Set(
         this.getDevices().map((device) => String(device.getSetting('host') ?? '')),
       );
-
-      this.log(`Sweeping ${subnet}.0/24 for printers`);
 
       const emit = (event: string, payload: unknown) => {
         // The user can close the pairing dialog mid-sweep, which makes every
         // later emit reject. That is expected, not an error worth logging loudly.
         session.emit(event, payload).catch(() => {});
       };
+
+      // Homey has been listening for mDNS since it started, so anything it already
+      // knows about appears at once — the sweep below only has to cover printers
+      // that announce nothing.
+      const announced = this.discoveredAddresses();
+      for (const address of announced) {
+        if (taken.has(address)) continue;
+        taken.add(address);
+
+        const candidate = await this.identify(address, 'public');
+        if (candidate === null) continue;
+
+        this.log(`Discovery already knew ${candidate.name} at ${address}`);
+        emit('printer', candidate);
+      }
+
+      const subnet = await this.localSubnet();
+      if (subnet === null) {
+        this.error('Could not determine the local subnet; discovery results only');
+        emit('scan_done', { count: announced.size });
+        return { started: true };
+      }
+
+      this.log(`Sweeping ${subnet}.0/24 for printers`);
 
       void scanSubnet(subnet, taken, (printer) => {
         this.log(`Found ${printer.name} at ${printer.host}`);
@@ -124,11 +140,11 @@ export default class PrinterDriver extends Homey.Driver {
       })
         .then((found) => {
           this.log(`Sweep finished, ${found.length} printer(s)`);
-          emit('scan_done', { count: found.length });
+          emit('scan_done', { count: found.length + announced.size });
         })
         .catch((error: Error) => {
           this.error(`Sweep failed: ${error.message}`);
-          emit('scan_done', { count: 0, error: error.message });
+          emit('scan_done', { count: announced.size, error: error.message });
         });
 
       return { started: true };
@@ -169,6 +185,54 @@ export default class PrinterDriver extends Homey.Driver {
         return { ok: false, message: (error as Error).message };
       }
     });
+  }
+
+  /**
+   * Addresses Homey's own mDNS discovery is already aware of.
+   *
+   * Homey listens continuously, so these cost nothing and arrive instantly. The
+   * strategy watches `_ipp._tcp`, which AirPrint and Mopria both require, so
+   * essentially every current network printer announces itself on it — but not
+   * every one does, which is why the subnet sweep still runs afterwards.
+   */
+  private discoveredAddresses(): Set<string> {
+    const addresses = new Set<string>();
+    try {
+      const results = this.getDiscoveryStrategy().getDiscoveryResults();
+      for (const result of Object.values(results)) {
+        const address = (result as Homey.DiscoveryResultMDNSSD).address;
+        if (typeof address === 'string' && address.length > 0) addresses.add(address);
+      }
+    } catch (error) {
+      this.error(`Could not read discovery results: ${(error as Error).message}`);
+    }
+    return addresses;
+  }
+
+  /**
+   * Confirms an address really is an SNMP-readable printer, and describes it.
+   *
+   * mDNS says a printer is there; it says nothing about whether SNMP is enabled,
+   * which is what this app actually needs. Offering an unreadable device would
+   * pair something that never reports a level.
+   */
+  private async identify(host: string, community: string): Promise<Candidate | null> {
+    const version = await negotiateVersion(host, community, 2_000);
+    if (version === null) return null;
+
+    try {
+      const identity = await new PrinterReader(host, community, version, 2_000).readIdentity();
+      const vendor = vendorName(identity.enterprise);
+      return {
+        host,
+        community,
+        version,
+        name: suggestDeviceName(identity.model, vendor, identity.name, host),
+        serial: identity.serial,
+      };
+    } catch {
+      return null;
+    }
   }
 
   /**
