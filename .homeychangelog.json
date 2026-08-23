@@ -3,5 +3,8 @@
     "en": "First release. Reads ink and toner levels, printer status, panel message and page counter from any network printer that speaks SNMP, and exposes them as Flow cards.",
     "fr": "Première version. Lit les niveaux d’encre et de toner, l’état de l’imprimante, le message du panneau et le compteur de pages sur toute imprimante réseau parlant SNMP, et les expose en cartes Flow.",
     "nl": "Eerste versie. Leest inkt- en tonerniveaus, printerstatus, displaybericht en paginateller van elke netwerkprinter die SNMP spreekt, en biedt ze aan als Flow-kaarten."
+  },
+  "1.0.1": {
+    "en": "nFirst release. Reads ink and toner levels, printer status, panel message and page counter from any network printer that speaks SNMP, and exposes them as Flow cards."
   }
 }
