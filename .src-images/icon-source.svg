@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <rect width="1024" height="1024" fill="#ffffff"/>
+  <g fill="none" stroke="#30343a" stroke-width="28" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Paper feeder -->
+    <path fill="#ffffff" d="M305 350V185Q305 155 335 155H689Q719 155 719 185V350"/>
+    <path fill="#e9ebed" d="M250 350V270Q250 240 280 240H305V350Z"/>
+    <path fill="#e9ebed" d="M719 240H744Q774 240 774 270V350H719Z"/>
+
+    <!-- Printer body -->
+    <path fill="#ffffff" d="M160 350H864Q900 350 900 386V650Q900 690 860 690H164Q124 690 124 650V386Q124 350 160 350Z"/>
+
+    <!-- Subtle lower body -->
+    <path fill="#e9ebed" stroke="none" d="M124 625Q124 690 164 690H860Q900 690 900 625V650Q900 690 860 690H164Q124 690 124 650Z"/>
+
+    <!-- Indicator -->
+    <circle cx="245" cy="430" r="18" fill="#30343a" stroke="none"/>
+
+    <!-- Output slot -->
+    <path fill="#555a61" d="M250 500H774Q790 500 790 516V585Q790 600 774 600H250Q234 600 234 585V516Q234 500 250 500Z"/>
+
+    <!-- Printed page -->
+    <path fill="#ffffff" d="M290 550L734 550L770 820Q773 845 748 845H276Q251 845 254 820Z"/>
+    <path stroke="#c3c7cb" stroke-width="14" d="M350 650H674M350 700H680M350 750H545"/>
+  </g>
+</svg>

@@ -1,3 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
-  <path fill="#000" fill-rule="evenodd" d="M7.4 3 H16.6 V7.6 H21.5 V17.2 H17.4 V21.2 H6.6 V17.2 H2.5 V7.6 H7.4 Z M8.85 4.45 H15.150000000000002 V9.049999999999999 H20.05 V15.75 H15.95 V19.75 H8.049999999999999 V15.75 H3.95 V9.049999999999999 H8.85 Z M6.6 17.2 V14.5 H17.4 V17.2 H15.95 V15.95 H8.049999999999999 V17.2 Z M18.7 9.549999999999999 a1.05 1.05 0 1 1 0 2.1 a1.05 1.05 0 1 1 0 -2.1 Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <g fill="none" stroke="#000000" stroke-width="34" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Paper feeder, behind the body -->
+    <path d="M305 350V185Q305 155 335 155H689Q719 155 719 185V350"/>
+
+    <!-- Printer body -->
+    <path d="M160 350H864Q900 350 900 386V650Q900 690 860 690H164Q124 690 124 650V386Q124 350 160 350Z"/>
+
+    <!-- Output slot -->
+    <path d="M250 500H774Q790 500 790 516V585Q790 600 774 600H250Q234 600 234 585V516Q234 500 250 500Z"/>
+
+    <!-- Printed page, in front of the body -->
+    <path d="M290 550L734 550L770 820Q773 845 748 845H276Q251 845 254 820Z"/>
+  </g>
+
+  <!-- Status light -->
+  <circle cx="245" cy="430" r="26" fill="#000000"/>
 </svg>

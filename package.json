@@ -13,8 +13,7 @@
     "app:run": "homey app run",
     "gen:images": "node tools/build-images.mjs",
     "gen:capabilities": "node tools/generate-capabilities.mjs",
-    "app:install": "homey app install",
-    "gen:icon": "node tools/generate-icon.mjs"
+    "app:install": "homey app install"
   },
   "dependencies": {
     "net-snmp": "^3.26.3",
