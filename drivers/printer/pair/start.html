@@ -53,16 +53,41 @@
 
 <script type="text/javascript">
   /*
-   * One view, no navigation, and polling rather than pushed events.
+   * Defensive on purpose. The previous version of this view died before it ran a
+   * single line of useful code: the driver's trace showed "onPair start" and
+   * nothing after it, not even the log this view emits on startup. Anything that
+   * throws up here takes the whole view with it and leaves an inert screen with
+   * no clue why.
    *
-   * A custom view followed by a system template cannot be navigated into: both
-   * Homey.showView() and Homey.nextView() fail inside Homey's pairing frontend
-   * and leave a blank screen. So this view calls Homey.createDevice() itself.
-   *
-   * Results are polled with Homey.emit(), not received through Homey.on(). The
-   * push direction was never proven to work here, and when nothing appeared
-   * there was no way to tell a failed sweep from events that never arrived.
+   * So: Homey.ready() goes first, before any other Homey call; the very next
+   * statement reports that the script is alive; and every optional API is
+   * wrapped, because a call that does not exist in the pairing frontend would
+   * otherwise be indistinguishable from a broken sweep.
    */
+  Homey.ready();
+
+  function report(message) {
+    try { Homey.emit('viewLog', String(message)); } catch (e) { /* nothing we can do */ }
+  }
+
+  report('view script running');
+
+  window.addEventListener('error', (event) =>
+    report('window error: ' + event.message + ' @' + event.lineno));
+  window.addEventListener('unhandledrejection', (event) =>
+    report('unhandled rejection: ' + ((event.reason && event.reason.message) || event.reason)));
+
+  /** Translates, falling back to the key so a missing string never throws. */
+  function t(key, fallback) {
+    try {
+      const value = Homey.__(key);
+      if (value && value !== key) return value;
+    } catch (e) {
+      report('translate failed for ' + key + ': ' + e.message);
+    }
+    return fallback;
+  }
+
   const searchEl = document.getElementById('search');
   const statusEl = document.getElementById('status');
   const listEl = document.getElementById('list');
@@ -72,15 +97,6 @@
 
   let busy = false;
   let sweeping = false;
-
-  // Every failure here is reported to the driver, which keeps a trace the
-  // settings page can show. Without it a silent pairing view is undiagnosable.
-  function report(message) {
-    try { Homey.emit('viewLog', String(message)); } catch (e) { /* nothing we can do */ }
-  }
-  window.addEventListener('error', (event) => report('error: ' + event.message));
-  window.addEventListener('unhandledrejection', (event) =>
-    report('unhandled rejection: ' + ((event.reason && event.reason.message) || event.reason)));
 
   function setStatus(text, bad) {
     statusEl.textContent = text || '';
@@ -141,34 +157,38 @@
     sweeping = true;
     searchEl.disabled = true;
     listEl.innerHTML = '';
-    setStatus(Homey.__('pair.searching'));
+    setStatus(t('pair.searching', 'Searching\u2026'));
+    report('sweep: requesting scan_start');
 
     try {
       const started = await Homey.emit('scan_start', null);
+      report('sweep: scan_start returned ' + JSON.stringify(started));
+
       if (!started || !started.started) {
-        setStatus(Homey.__('pair.none_found'));
+        setStatus(t('pair.none_found', 'No printer found.'));
         return;
       }
 
-      for (;;) {
+      for (let i = 0; i < 30; i += 1) {
         await new Promise((resolve) => setTimeout(resolve, 1500));
         const data = await Homey.emit('scan_status', null);
-        if (!data) break;
+        if (!data) { report('sweep: scan_status returned nothing'); break; }
 
         render(data.printers || []);
         if (!data.running) {
-          setStatus((data.printers || []).length ? '' : Homey.__('pair.none_found'));
-          break;
+          report('sweep: finished with ' + (data.printers || []).length);
+          setStatus((data.printers || []).length ? '' : t('pair.none_found', 'No printer found.'));
+          return;
         }
-        setStatus(Homey.__('pair.searching'));
       }
+      report('sweep: gave up waiting');
     } catch (error) {
       report('sweep failed: ' + ((error && error.message) || error));
       setStatus((error && error.message) || String(error), true);
     } finally {
       sweeping = false;
       searchEl.disabled = false;
-      searchEl.textContent = Homey.__('pair.search_again');
+      searchEl.textContent = t('pair.search_again', 'Search again');
     }
   }
 
@@ -177,7 +197,7 @@
     if (!host) return;
 
     addEl.disabled = true;
-    setStatus(Homey.__('pair.testing'));
+    setStatus(t('pair.testing', 'Contacting\u2026'));
     try {
       const answer = await Homey.emit('probe', { host, community: communityEl.value.trim() });
       if (!answer || !answer.ok) {
@@ -200,8 +220,16 @@
     if (event.key === 'Enter') addManually();
   });
 
-  Homey.setTitle(Homey.__('pair.title'));
-  Homey.ready();
-  report('view ready');
+  // Labels are set from script rather than data-i18n, so a translation problem
+  // cannot leave a button that looks empty and unclickable.
+  searchEl.textContent = t('pair.search', 'Search my network');
+  addEl.textContent = t('pair.add', 'Add');
+
+  // setTitle is optional: if the pairing frontend does not provide it, losing the
+  // title is acceptable, losing the whole view is not.
+  try { Homey.setTitle(t('pair.title', 'Find your printer')); }
+  catch (e) { report('setTitle unavailable: ' + e.message); }
+
+  report('view ready, starting sweep');
   sweep();
 </script>
