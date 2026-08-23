@@ -6,6 +6,7 @@ import {
   classifySupplyColour,
   decodeCoverStatus,
   decodeErrorState,
+  decodeInputType,
   decodePrinterStatus,
   decodeSupplyUnit,
   enterpriseNumber,
@@ -22,35 +23,39 @@ import {
 
 describe('supplyPercent', () => {
   it('scales a level against its capacity', () => {
-    assert.equal(supplyPercent(20, 100, false), 20);
-    assert.equal(supplyPercent(3, 6, false), 50);
+    assert.equal(supplyPercent(20, 100), 20);
+    assert.equal(supplyPercent(3, 6), 50);
   });
 
   it('returns null for every Printer-MIB sentinel rather than a negative percentage', () => {
     // -1 other, -2 unknown, -3 someRemaining. Showing these as numbers would put
     // "-2 %" in the UI; showing them as 0 would raise a false empty alarm.
-    assert.equal(supplyPercent(-1, 100, false), null);
-    assert.equal(supplyPercent(-2, 100, false), null);
-    assert.equal(supplyPercent(-3, 100, false), null);
+    assert.equal(supplyPercent(-1, 100), null);
+    assert.equal(supplyPercent(-2, 100), null);
+    assert.equal(supplyPercent(-3, 100), null);
   });
 
   it('returns null when the capacity gives no scale to divide by', () => {
-    assert.equal(supplyPercent(50, -2, false), null);
-    assert.equal(supplyPercent(50, 0, false), null);
+    assert.equal(supplyPercent(50, -2), null);
+    assert.equal(supplyPercent(50, 0), null);
   });
 
-  it('inverts a receptacle, because it fills up instead of draining', () => {
-    // A waste tank at 90 % full has 10 % of headroom left.
-    assert.equal(supplyPercent(90, 100, true), 10);
-    assert.equal(supplyPercent(0, 100, true), 100);
+  it('never inverts a receptacle, because the MIB already reports its headroom', () => {
+    // RFC 3805: prtMarkerSuppliesLevel is "the current level if this supply is a
+    // container; the remaining space if this supply is a receptacle". A waste
+    // bottle therefore counts down as it fills, exactly like a cartridge.
+    // Inverting it turned a new Lexmark bottle at 15000/15000 into 0 %.
+    assert.equal(supplyPercent(15000, 15000), 100);
+    assert.equal(supplyPercent(1500, 15000), 10);
+    assert.equal(supplyPercent(0, 15000), 0);
   });
 
   it('keeps a full cartridge at 100 rather than overshooting', () => {
-    assert.equal(supplyPercent(120, 100, false), 100);
+    assert.equal(supplyPercent(120, 100), 100);
   });
 
   it('reports a genuinely empty cartridge as 0, not unknown', () => {
-    assert.equal(supplyPercent(0, 100, false), 0);
+    assert.equal(supplyPercent(0, 100), 0);
   });
 });
 
@@ -165,11 +170,12 @@ function outputTray(remaining: number, maxCapacity: number): OutputTray {
   };
 }
 
-function inputTray(level: number, maxCapacity: number): InputTray {
+function inputTray(level: number, maxCapacity: number, type = 'sheetFeedAutoRemovableTray'): InputTray {
   return {
     index: '1.1',
     name: 'Tray 1',
     media: 'A4',
+    type,
     level,
     maxCapacity,
     percent: inputPercent(level, maxCapacity),
@@ -181,16 +187,16 @@ describe('supplyPercent with a unit', () => {
     // Several printers report a percentage and leave the capacity at -2. Before
     // the unit column was read, that showed as "unknown" on a printer that had
     // just answered the question outright.
-    assert.equal(supplyPercent(45, -2, false, 'percent'), 45);
+    assert.equal(supplyPercent(45, -2, 'percent'), 45);
   });
 
   it('still refuses to guess when the unit is anything else', () => {
-    assert.equal(supplyPercent(45, -2, false, 'impressions'), null);
-    assert.equal(supplyPercent(45, -2, false), null);
+    assert.equal(supplyPercent(45, -2, 'impressions'), null);
+    assert.equal(supplyPercent(45, -2), null);
   });
 
   it('prefers a real capacity over the unit shortcut', () => {
-    assert.equal(supplyPercent(45, 90, false, 'percent'), 50);
+    assert.equal(supplyPercent(45, 90, 'percent'), 50);
   });
 });
 
@@ -350,23 +356,49 @@ describe('summariseAlerts bounds', () => {
   });
 });
 
-describe('isReceptacle honours an explicit class', () => {
-  it('believes the printer when it says a waste part is consumed', () => {
-    // A Lexmark C3326dw reports its waste toner bottle as consumed at 100 when
-    // the bottle is new. Guessing from the type name inverted that to 0 % room
-    // left and rang the low-supply alarm on a healthy printer.
-    assert.equal(isReceptacle(3, 'wasteToner'), false);
-    assert.equal(supplyPercent(100, 100, isReceptacle(3, 'wasteToner')), 100);
+describe('isReceptacle classifies without changing the reading', () => {
+  it('reads a class-4 waste bottle the same way as any other supply', () => {
+    // The real Lexmark C3326dw row: class 4, 15000 of 15000 impressions, on a
+    // printer whose bottle is new. It must read 100 %, not 0 %.
+    assert.equal(isReceptacle(4, 'wasteToner'), true);
+    assert.equal(supplyPercent(15000, 15000), 100);
   });
 
-  it('still inverts when the printer says receptacle', () => {
-    assert.equal(isReceptacle(4, 'wasteToner'), true);
-    assert.equal(supplyPercent(100, 100, isReceptacle(4, 'wasteToner')), 0);
+  it('believes the printer when it says a waste part is consumed', () => {
+    assert.equal(isReceptacle(3, 'wasteToner'), false);
   });
 
   it('falls back to the type name only when the class says nothing useful', () => {
     assert.equal(isReceptacle(null, 'wasteToner'), true);
     assert.equal(isReceptacle(1, 'wasteToner'), true);
     assert.equal(isReceptacle(1, 'toner'), false);
+  });
+});
+
+describe('a manual feeder is not a paper shortage', () => {
+  const manual = (level: number) => inputTray(level, 100, 'sheetFeedManual');
+
+  it('ignores an empty bypass slot, which is its resting state', () => {
+    // The real Lexmark C3326dw rows: Manual Envelope 0 %, Manual Paper 0 %,
+    // Tray 1 100 %. Counting the manual slots left the paper alarm on for ever
+    // on a printer with a full cassette.
+    assert.equal(isPaperLow([manual(0), manual(0), inputTray(100, 100)], [], 15), false);
+  });
+
+  it('still reports a real cassette running out', () => {
+    assert.equal(isPaperLow([manual(0), inputTray(5, 100)], [], 15), true);
+  });
+
+  it('still trusts the printer’s own paper warning whatever the trays say', () => {
+    assert.equal(isPaperLow([manual(0)], ['lowPaper'], 15), true);
+  });
+});
+
+describe('decodeInputType', () => {
+  it('names the feeder types the alarm has to tell apart', () => {
+    assert.equal(decodeInputType(5), 'sheetFeedManual');
+    assert.equal(decodeInputType(3), 'sheetFeedAutoRemovableTray');
+    assert.equal(decodeInputType(null), 'unknown');
+    assert.equal(decodeInputType(99), 'unknown');
   });
 });

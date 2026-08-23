@@ -37,6 +37,16 @@ interface ProbeResult {
 /** How many pairing trace lines to keep. Enough to cover one pairing attempt. */
 const TRACE_LIMIT = 60;
 
+/**
+ * How long a pairing probe waits for an answer.
+ *
+ * Kept in step with the polling timeout rather than the sweep's: a sweep has a
+ * whole subnet to get through and can afford to miss a slow printer, while a
+ * user typing in an address has told us exactly where to look and expects us to
+ * wait for it.
+ */
+const PAIR_TIMEOUT_MS = 5_000;
+
 export default class PrinterDriver extends Homey.Driver {
   /**
    * A ring buffer of what happened during pairing, readable from the settings page.
@@ -239,11 +249,17 @@ export default class PrinterDriver extends Homey.Driver {
    * pair something that never reports a level.
    */
   private async identify(host: string, community: string): Promise<Candidate | null> {
-    const version = await negotiateVersion(host, community, 2_000);
+    // Five seconds with a retry, matching what polling allows. Two was too tight
+    // for an older printer waking its SNMP agent: it would pair-fail on a
+    // machine that then polled perfectly well once added by hand.
+    const version = await negotiateVersion(host, community, PAIR_TIMEOUT_MS);
     if (version === null) return null;
 
+    // Past this point the printer has answered sysDescr, so there *is* an agent
+    // at this address. Whatever happens next, "not reachable" is now the wrong
+    // thing to tell the user.
     try {
-      const identity = await new PrinterReader(host, community, version, 2_000).readIdentity();
+      const identity = await new PrinterReader(host, community, version, PAIR_TIMEOUT_MS).readIdentity();
       const vendor = vendorName(identity.enterprise);
       return {
         host,
@@ -252,8 +268,14 @@ export default class PrinterDriver extends Homey.Driver {
         name: suggestDeviceName(identity.model, vendor, identity.name, host),
         serial: identity.serial,
       };
-    } catch {
-      return null;
+    } catch (error) {
+      // A printer that answers SNMP but not one of the six identity OIDs used to
+      // be reported as unreachable, which sends the user hunting for a network
+      // fault that is not there. On v1 a single missing OID fails the whole
+      // request, so this is not a rare shape. Offer it anyway, named after its
+      // address; the supplies walk is independent and usually works fine.
+      this.note(`identify ${host}: agent answered but identity failed — ${(error as Error).message}`);
+      return { host, community, version, name: `Printer ${host}`, serial: null };
     }
   }
 

@@ -26,11 +26,12 @@ function supply(colour: SupplyColour, percent: number | null, description = ''):
   };
 }
 
-function tray(name: string, percent: number | null, media = 'A4'): InputTray {
+function tray(name: string, percent: number | null, media = 'A4', type = 'sheetFeedAutoRemovableTray'): InputTray {
   return {
     index: '1.1',
     name,
     media,
+    type,
     level: percent ?? -2,
     maxCapacity: percent === null ? -2 : 100,
     percent,
@@ -221,6 +222,68 @@ describe('isSupplyLow', () => {
   it('counts a nearly-full waste tank, which stops printing just as surely', () => {
     // percent is headroom left, so 5 means the tank is 95 % full.
     assert.equal(isSupplyLow([supply('waste', 5)], 15), true);
+  });
+});
+
+describe('the Lexmark C3326dw that reported this', () => {
+  /** Every row exactly as the printer's own diagnostics showed it. */
+  function c3326dw(): PrinterSnapshot {
+    const impressions = (
+      description: string, colour: SupplyColour, level: number, max: number,
+    ): Supply => ({
+      index: 1,
+      description,
+      type: colour === 'waste' ? 'wasteToner' : 'toner',
+      colour,
+      percent: Math.round((level / max) * 100),
+      someRemaining: false,
+      isReceptacle: colour === 'waste',
+      supplyClass: colour === 'waste' ? 4 : 3,
+      level,
+      maxCapacity: max,
+      unit: 'impressions',
+    });
+
+    return snapshot({
+      model: 'Lexmark C3326dw',
+      displayText: 'Gereed',
+      pageCount: 1027,
+      supplies: [
+        impressions('Black Cartridge', 'black', 2430, 3000),
+        impressions('Cyan Cartridge', 'cyan', 2000, 2500),
+        impressions('Fuser', 'other', 50000, 50000),
+        impressions('Transfer Module', 'other', 50000, 50000),
+        impressions('Magenta Cartridge', 'magenta', 2075, 2500),
+        impressions('Waste Toner Bottle', 'waste', 15000, 15000),
+        impressions('Yellow Cartridge', 'yellow', 2150, 2500),
+      ],
+      inputTrays: [
+        tray('Manual Envelope', 0, 'iso-designated-long-envelope', 'sheetFeedManual'),
+        tray('Manual Paper', 0, 'iso-a5-white', 'sheetFeedManual'),
+        tray('Tray 1', 100, 'iso-a4-white'),
+      ],
+    });
+  }
+
+  it('leaves the waste bottle at 100 %, because it is new', () => {
+    const plan = planCapabilities(c3326dw(), 15);
+    assert.equal(plan.values.find((v) => v.id === 'supply_waste')?.value, 100);
+  });
+
+  it('raises neither alarm on a printer with nothing wrong', () => {
+    const plan = planCapabilities(c3326dw(), 15);
+    assert.equal(plan.values.find((v) => v.id === 'alarm_supply_low')?.value, false);
+    assert.equal(plan.values.find((v) => v.id === 'alarm_paper_low')?.value, false);
+    assert.deepEqual(plan.lowSupplies, []);
+  });
+
+  it('still names a genuinely empty cassette in the warning', () => {
+    const empty = c3326dw();
+    empty.inputTrays[2] = tray('Tray 1', 4, 'iso-a4-white');
+    const plan = planCapabilities(empty, 15);
+
+    assert.equal(plan.values.find((v) => v.id === 'alarm_paper_low')?.value, true);
+    assert.deepEqual(plan.lowSupplies, ['Tray 1 · iso-a4-white']);
   });
 });
 

@@ -33,5 +33,10 @@
     "en": "A printer you switch off can now be greyed out sooner: a new device setting chooses how many unanswered checks it takes. Also includes the repair fix from 1.0.6.",
     "fr": "Une imprimante que vous éteignez peut désormais être grisée plus tôt : un nouveau réglage choisit le nombre de relevés sans réponse nécessaires. Inclut aussi le correctif de réparation de la 1.0.6.",
     "nl": "Een printer die je uitschakelt kan nu eerder grijs worden: een nieuwe apparaatinstelling bepaalt hoeveel onbeantwoorde metingen daarvoor nodig zijn. Bevat ook de reparatiefix uit 1.0.6."
+  },
+  "1.0.8": {
+    "en": "Waste tanks were read upside down and showed 0 % when new, raising a false low-supply alarm. An empty manual feed slot no longer counts as running out of paper, the device warning names a low tray as well as a low cartridge, and pairing no longer gives up on a printer that answers but reports an incomplete identity.",
+    "fr": "Les réservoirs d’encre usée étaient lus à l’envers et affichaient 0 % à l’état neuf, déclenchant une fausse alarme de consommable bas. Une fente d’alimentation manuelle vide ne compte plus comme une panne de papier, l’avertissement de l’appareil nomme aussi un bac bas, et l’appairage n’abandonne plus une imprimante qui répond mais renvoie une identité incomplète.",
+    "nl": "Afvalreservoirs werden omgekeerd gelezen en toonden 0 % als ze nieuw waren, met een vals alarm voor laag verbruik tot gevolg. Een lege handinvoer telt niet meer als papier op, de apparaatwaarschuwing noemt ook een bijna lege lade, en koppelen geeft niet meer op bij een printer die antwoordt maar een onvolledige identiteit teruggeeft."
   }
 }

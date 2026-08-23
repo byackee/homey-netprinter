@@ -48,6 +48,8 @@ export const OID = {
   suppliesLevel: '1.3.6.1.2.1.43.11.1.1.9',
 
   /** prtInputTable — walked, one row per paper tray. */
+  /** prtInputType — see {@link INPUT_TYPE}; tells a manual feeder from a cassette. */
+  inputType: '1.3.6.1.2.1.43.8.2.1.2',
   inputCapacityUnit: '1.3.6.1.2.1.43.8.2.1.8',
   inputMaxCapacity: '1.3.6.1.2.1.43.8.2.1.9',
   inputCurrentLevel: '1.3.6.1.2.1.43.8.2.1.10',
@@ -124,9 +126,11 @@ export const ERROR_BITS = [
 export type PrinterErrorFlag = (typeof ERROR_BITS)[number];
 
 /**
- * prtMarkerSuppliesClass. The distinction matters: a receptacle reports how full
- * it is, a consumed supply reports how much is left. Treating them alike shows a
- * nearly-full waste tank as a nearly-full ink tank.
+ * prtMarkerSuppliesClass.
+ *
+ * Kept for description only. It does not change how a level is read: RFC 3805
+ * has a receptacle report its *remaining space*, so both classes count down
+ * towards zero and both mean the same thing to the user.
  */
 export const SUPPLY_CLASS = { other: 1, consumed: 3, receptacle: 4 } as const;
 
@@ -156,7 +160,7 @@ export const SUPPLY_UNIT: Record<number, string> = {
 /** prtMarkerSuppliesSupplyUnit value for a level that is already a percentage. */
 export const UNIT_PERCENT = 19;
 
-/** Types whose level counts up as they fill rather than down as they drain. */
+/** Supply types that are receptacles even when the printer forgets to say so. */
 const WASTE_TYPES = new Set(['wasteToner', 'wasteInk', 'wasteWax', 'wasteWater', 'wastePaper']);
 
 /**
@@ -179,8 +183,9 @@ export interface Supply {
   /** The colour this supply lays down, when the printer links one. */
   colour: SupplyColour;
   /**
-   * Percentage remaining, 0-100, or null when the printer will not say.
-   * Already inverted for receptacles, so 100 always means "nothing to do".
+   * Percentage remaining, 0-100, or null when the printer will not say. For a
+   * waste receptacle this is the room it has left, which the printer reports
+   * directly — so 100 always means "nothing to do", whatever the class.
    */
   percent: number | null;
   /** True when the printer reports presence without a quantity (-3). */
@@ -252,17 +257,23 @@ export function classifySupplyColour(
 }
 
 /**
- * Turns a raw supply row into a percentage.
+ * Turns a raw supply row into a percentage, where 100 always means "nothing to
+ * do" and 0 always means "deal with this".
+ *
+ * No inversion happens here, and that is the whole point. RFC 3805 defines
+ * prtMarkerSuppliesLevel as "the current level if this supply is a container;
+ * the *remaining space* if this supply is a receptacle" — so a waste bottle
+ * already counts down as it fills, exactly like a cartridge. This code used to
+ * invert receptacles on the assumption that they count up, which turned a brand
+ * new waste bottle reporting 15000 of 15000 impressions of headroom into 0 %
+ * and rang the low-supply alarm on a healthy printer.
  *
  * Returns null rather than a number whenever the printer declines to answer, so
- * a caller can tell "I do not know" apart from "it is empty". Receptacles are
- * inverted here so that every {@link Supply.percent} in the app means the same
- * thing: how much headroom is left before the user must act.
+ * a caller can tell "I do not know" apart from "it is empty".
  */
 export function supplyPercent(
   level: number,
   maxCapacity: number,
-  isReceptacle: boolean,
   unit: string = 'unknown',
 ): number | null {
   if (level === LEVEL_OTHER || level === LEVEL_UNKNOWN || level === LEVEL_SOME_REMAINING) return null;
@@ -275,8 +286,7 @@ export function supplyPercent(
   // -1 (other) and -2 (unknown) capacities give no scale to divide by.
   if (scale <= 0) return null;
 
-  const filled = Math.min(100, Math.round((level / scale) * 100));
-  return isReceptacle ? 100 - filled : filled;
+  return Math.min(100, Math.round((level / scale) * 100));
 }
 
 /** Maps prtMarkerSuppliesSupplyUnit to a name, defaulting to `unknown`. */
@@ -371,6 +381,25 @@ export const INPUT_OTHER = -1;
 export const INPUT_UNKNOWN = -2;
 export const INPUT_SHEETS_REMAINING = -3;
 
+/**
+ * prtInputType (RFC 3805). Only the manual feeder needs telling apart.
+ *
+ * A manual or bypass slot sits empty as its normal resting state — you put a
+ * sheet in it when you want one. Counting that as "paper low" fires the alarm
+ * permanently on any printer that has one, which is most laser printers.
+ */
+export const INPUT_TYPE: Record<number, string> = {
+  1: 'other', 2: 'unknown',
+  3: 'sheetFeedAutoRemovableTray', 4: 'sheetFeedAutoNonRemovableTray',
+  5: 'sheetFeedManual', 6: 'continuousRoll', 7: 'continuousFanFold',
+};
+
+/** Maps prtInputType to a name, defaulting to `unknown`. */
+export function decodeInputType(value: number | null): string {
+  if (value === null) return 'unknown';
+  return INPUT_TYPE[value] ?? 'unknown';
+}
+
 /** One decoded row of prtInputTable. */
 export interface InputTray {
   /** The row index within the table. */
@@ -379,6 +408,8 @@ export interface InputTray {
   name: string;
   /** prtInputMediaName, e.g. "A4". Empty when the printer does not say. */
   media: string;
+  /** An {@link INPUT_TYPE} name. `sheetFeedManual` is exempt from the alarm. */
+  type: string;
   /** prtInputCurrentLevel as sent, sentinels included. */
   level: number;
   /** prtInputMaxCapacity as sent. */
@@ -411,7 +442,21 @@ export function isPaperLow(
   if (errors.includes('noPaper') || errors.includes('lowPaper') || errors.includes('inputTrayEmpty')) {
     return true;
   }
-  return trays.some((t) => t.percent !== null && t.percent <= thresholdPercent);
+  return trays.some(isTrayLow(thresholdPercent));
+}
+
+/**
+ * Whether one tray counts as low.
+ *
+ * Manual feeders never do. An empty bypass slot is a manual feeder at rest, not
+ * a printer about to stop, and a Lexmark that reports "Manual Paper 0 %" and
+ * "Manual Envelope 0 %" alongside a full cassette would otherwise sit under a
+ * paper alarm for ever.
+ */
+export function isTrayLow(thresholdPercent: number): (tray: InputTray) => boolean {
+  return (tray) => tray.type !== 'sheetFeedManual'
+    && tray.percent !== null
+    && tray.percent <= thresholdPercent;
 }
 
 /** prtCoverStatus (RFC 3805). Interlocks are doors too, from the user's side. */

@@ -110,13 +110,13 @@
     function rawLevel(supply) {
       if (supply.level === undefined) return '';
       const unit = supply.unit && supply.unit !== 'unknown' ? ' ' + supply.unit : '';
-      // The class decides whether the level counts down as the part is used or up
-      // as it fills. A vendor that states one and means the other is the single
-      // hardest reading bug to see, and impossible to see without this.
-      const kind = supply.receptacle ? Homey.__('settings.fills') : Homey.__('settings.drains');
+      // The class is shown but no longer interpreted: RFC 3805 has both classes
+      // count down towards zero, a receptacle reporting the space it has left.
+      // It stays on screen because it is what a user has to paste when a level
+      // looks wrong, and it is invisible everywhere else.
       const cls = supply.supplyClass === null || supply.supplyClass === undefined
         ? '' : ' · class ' + supply.supplyClass;
-      return '<div class="sub">' + esc(supply.level + ' / ' + supply.maxCapacity + unit + cls + ' · ' + kind) + '</div>';
+      return '<div class="sub">' + esc(supply.level + ' / ' + supply.maxCapacity + unit + cls) + '</div>';
     }
 
     function traysTable(trays) {

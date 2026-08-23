@@ -13,6 +13,7 @@ import {
   decodeAlertSeverity,
   decodeCoverStatus,
   decodeErrorState,
+  decodeInputType,
   decodePrinterStatus,
   decodeSupplyType,
   decodeSupplyUnit,
@@ -221,7 +222,7 @@ export class PrinterReader {
         description,
         type,
         colour: classifySupplyColour(description, colorant, type),
-        percent: supplyPercent(level, capacity, receptacle, unit),
+        percent: supplyPercent(level, capacity, unit),
         someRemaining: level === -3,
         isReceptacle: receptacle,
         level,
@@ -275,12 +276,13 @@ export class PrinterReader {
    * separately rather than as one paper level.
    */
   private async readInputTrays(): Promise<InputTray[]> {
-    const [levels, capacities, names, medias, descriptions] = await Promise.all([
+    const [levels, capacities, names, medias, descriptions, types] = await Promise.all([
       this.client.walk(OID.inputCurrentLevel),
       this.client.walk(OID.inputMaxCapacity),
       this.client.walk(OID.inputName),
       this.client.walk(OID.inputMediaName),
       this.client.walk(OID.inputDescription),
+      this.client.walk(OID.inputType),
     ]);
 
     const indices: string[] = [];
@@ -301,6 +303,7 @@ export class PrinterReader {
         index,
         name,
         media: asString(medias.get(`${OID.inputMediaName}.${index}`)) ?? '',
+        type: decodeInputType(asNumber(types.get(`${OID.inputType}.${index}`))),
         level,
         maxCapacity,
         percent: inputPercent(level, maxCapacity),

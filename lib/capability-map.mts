@@ -6,8 +6,8 @@
  */
 
 import type { PrinterSnapshot } from './printer-reader.mjs';
-import { classifyOutputTray, isCoverOpen, isPaperLow, summariseAlerts } from './printer-mib.mjs';
-import type { Supply, SupplyColour } from './printer-mib.mjs';
+import { classifyOutputTray, isCoverOpen, isPaperLow, isTrayLow, summariseAlerts } from './printer-mib.mjs';
+import type { InputTray, Supply, SupplyColour } from './printer-mib.mjs';
 
 /** Supply colours that have a capability of their own. */
 const NAMED_COLOURS: readonly SupplyColour[] = [
@@ -59,12 +59,13 @@ export interface CapabilityPlan {
   /** Supplies that could not be shown because every fallback slot was taken. */
   dropped: Supply[];
   /**
-   * The supplies currently at or below the threshold, named as the user would
-   * recognise them.
+   * Everything currently at or below the threshold — consumables and paper
+   * alike — named as the user would recognise it.
    *
-   * The alarm capability is a bare boolean, so on its own it says something is
-   * low without ever saying what. This is what turns it into an actionable
-   * warning on the device.
+   * The alarm capabilities are bare booleans, so on their own they say something
+   * is low without ever saying what. This is what turns them into an actionable
+   * warning on the device. Paper belongs here too: a user looking at a warning
+   * wants to know the tray is empty just as much as the toner.
    */
   lowSupplies: string[];
 }
@@ -133,6 +134,18 @@ export function lowSupplyNames(supplies: Supply[], thresholdPercent: number): st
   return supplies
     .filter((s) => s.percent !== null && s.percent <= thresholdPercent)
     .map((s) => (s.description.trim() || s.colour));
+}
+
+/**
+ * Names the paper trays that are at or below the threshold.
+ *
+ * Manual feeders are left out for the same reason the alarm ignores them: an
+ * empty bypass slot is its resting state, not a warning.
+ */
+export function lowTrayNames(trays: InputTray[], thresholdPercent: number): string[] {
+  return trays
+    .filter(isTrayLow(thresholdPercent))
+    .map((t) => [t.name.trim(), t.media.trim()].filter((x) => x.length > 0).join(' · ') || 'paper');
 }
 
 /** The error flags that mean the printer genuinely cannot print right now. */
@@ -224,6 +237,9 @@ export function planCapabilities(snapshot: PrinterSnapshot, threshold: number): 
     values,
     titles,
     dropped,
-    lowSupplies: lowSupplyNames(snapshot.supplies, threshold),
+    lowSupplies: [
+      ...lowSupplyNames(snapshot.supplies, threshold),
+      ...lowTrayNames(snapshot.inputTrays, threshold),
+    ],
   };
 }
