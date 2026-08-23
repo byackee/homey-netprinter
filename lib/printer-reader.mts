@@ -57,6 +57,14 @@ export interface PrinterSnapshot {
   covers: PrinterCover[];
   /** What the printer itself says is wrong right now. Empty when it says nothing. */
   alerts: PrinterAlert[];
+  /**
+   * Whether the alert walk actually answered.
+   *
+   * An empty list means "nothing is wrong"; a failed walk means "we do not
+   * know", and only the first of those is grounds for clearing what is on
+   * screen. Same reasoning as the supplies table in syncCapabilities.
+   */
+  alertsRead: boolean;
 }
 
 /** Identity fields, read once during pairing. */
@@ -144,7 +152,10 @@ export class PrinterReader {
       this.readOutputTrays().catch(() => [] as OutputTray[]),
       this.readInputTrays().catch(() => [] as InputTray[]),
       this.readCovers().catch(() => [] as PrinterCover[]),
-      this.readAlerts().catch(() => [] as PrinterAlert[]),
+      this.readAlerts().then(
+        (rows) => ({ rows, ok: true }),
+        () => ({ rows: [] as PrinterAlert[], ok: false }),
+      ),
     ]);
 
     const rawError = errorRaw.get(OID.hrPrinterDetectedErrorState);
@@ -165,7 +176,8 @@ export class PrinterReader {
       outputTrays,
       inputTrays,
       covers,
-      alerts,
+      alerts: alerts.rows,
+      alertsRead: alerts.ok,
     };
   }
 

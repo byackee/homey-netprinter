@@ -73,5 +73,10 @@
     "en": "A printer that simply lacks one of the values the app asks for is no longer reported as unreachable. Some printers fail a whole batch of readings because a single one is missing; those readings now come back one by one instead.",
     "fr": "Une imprimante à laquelle il manque simplement une des valeurs demandées n’est plus signalée comme injoignable. Certaines imprimantes font échouer tout un lot de relevés parce qu’un seul manque ; ces relevés sont désormais repris un par un.",
     "nl": "Een printer die eenvoudigweg één van de opgevraagde waarden mist, wordt niet langer als onbereikbaar gemeld. Sommige printers laten een hele reeks uitlezingen mislukken omdat er één ontbreekt; die worden nu één voor één opgehaald."
+  },
+  "1.0.16": {
+    "en": "Printer alerts stayed on the last thing the printer complained about, long after it had stopped. A tray warning could sit there for hours once the tray was back. It clears now, as soon as the printer reports nothing wrong.",
+    "fr": "Les alertes imprimante restaient figées sur la dernière plainte de l’imprimante, bien après qu’elle ait cessé. Un avertissement de bac pouvait y rester des heures alors que le bac était remis. Elles s’effacent désormais dès que l’imprimante ne signale plus rien.",
+    "nl": "Printermeldingen bleven staan op het laatste waar de printer over klaagde, lang nadat dat voorbij was. Een ladewaarschuwing kon er uren blijven staan terwijl de lade er weer in zat. Ze worden nu gewist zodra de printer niets meer meldt."
   }
 }

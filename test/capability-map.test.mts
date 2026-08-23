@@ -53,6 +53,7 @@ function snapshot(overrides: Partial<PrinterSnapshot> = {}): PrinterSnapshot {
     inputTrays: [],
     covers: [],
     alerts: [],
+    alertsRead: true,
     ...overrides,
   };
 }
@@ -172,6 +173,23 @@ describe('planCapabilities', () => {
     );
     assert.equal(withCover.values.find((v) => v.id === 'alarm_cover_open')?.value, true);
     assert.ok(!planCapabilities(snapshot(), 15).capabilities.includes('alarm_cover_open'));
+  });
+
+  it('clears an alert the printer has stopped raising', () => {
+    // A user watched "Tray 1 Missing" sit in this capability for hours after
+    // the tray was back, because an empty alert list skipped the write.
+    const plan = planCapabilities(snapshot({ alerts: [], alertsRead: true }), 15);
+    const alert = plan.values.find((v) => v.id === 'printer_alert');
+
+    assert.equal(alert?.value, null, 'an answered, empty alert table must clear the row');
+    assert.ok(!plan.capabilities.includes('printer_alert'));
+  });
+
+  it('leaves the alert alone when the walk did not answer', () => {
+    // A failed walk is not an empty one. Blanking on a missed read would make
+    // the capability flicker every time the printer declines to answer once.
+    const plan = planCapabilities(snapshot({ alerts: [], alertsRead: false }), 15);
+    assert.ok(!plan.values.some((v) => v.id === 'printer_alert'));
   });
 
   it('passes the printer’s own alert wording through when there is any', () => {

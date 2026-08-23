@@ -241,8 +241,18 @@ export function planCapabilities(snapshot: PrinterSnapshot, threshold: number): 
 
   // The printer's own alert wording, which is the only thing that can name the
   // consumable behind the low-supply alarm.
+  //
+  // Row and value are separate decisions here for the same reason as the panel
+  // message: a printer that has never raised an alert gets no row, but once the
+  // row exists it must be able to go quiet again. Skipping the write when the
+  // list came back empty left a user staring at "Tray 1 Missing" for hours
+  // after the tray was back, with nothing able to replace it.
+  //
+  // A walk that failed is not an empty walk, though. We clear only when the
+  // printer actually answered and had nothing to say.
   const alerts = summariseAlerts(snapshot.alerts);
-  if (alerts !== null) addScalar('printer_alert', alerts);
+  if (alerts !== null) capabilities.push('printer_alert');
+  if (alerts !== null || snapshot.alertsRead) values.push({ id: 'printer_alert', value: alerts });
 
   return {
     capabilities,
