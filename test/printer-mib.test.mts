@@ -20,6 +20,7 @@ import {
   type InputTray,
   type OutputTray,
 } from '../lib/printer-mib.mjs';
+import { isMissingOidError } from '../lib/snmp-client.mjs';
 
 describe('supplyPercent', () => {
   it('scales a level against its capacity', () => {
@@ -400,5 +401,20 @@ describe('decodeInputType', () => {
     assert.equal(decodeInputType(3), 'sheetFeedAutoRemovableTray');
     assert.equal(decodeInputType(null), 'unknown');
     assert.equal(decodeInputType(99), 'unknown');
+  });
+});
+
+describe('isMissingOidError', () => {
+  it('reads NoSuchName as an absent OID, not an absent printer', () => {
+    // A Ricoh MFP omits sysName and answered a v2c batch with the v1 error,
+    // which used to be reported to the user as "No SNMP answer".
+    assert.equal(isMissingOidError('NoSuchName: 1.3.6.1.2.1.1.5.0'), true);
+    assert.equal(isMissingOidError('nosuchname'), true);
+  });
+
+  it('leaves a genuine failure to be treated as one', () => {
+    assert.equal(isMissingOidError('Request timed out'), false);
+    assert.equal(isMissingOidError('EHOSTUNREACH'), false);
+    assert.equal(isMissingOidError(''), false);
   });
 });

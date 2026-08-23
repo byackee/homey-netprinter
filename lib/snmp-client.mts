@@ -55,6 +55,17 @@ function toRaw(varbind: snmp.Varbind): Buffer | null {
 }
 
 /** Raised when the device could not be reached at all, as opposed to answering "I do not know". */
+/**
+ * Whether an SNMP error means "this printer has no such OID" rather than "this
+ * printer did not answer".
+ *
+ * The distinction is the difference between a missing page counter and an
+ * offline printer, and getting it wrong costs a user every reading they have.
+ */
+export function isMissingOidError(message: string): boolean {
+  return /NoSuchName/i.test(message);
+}
+
 export class SnmpUnreachableError extends Error {
   constructor(host: string, cause: string) {
     super(`No SNMP answer from ${host}: ${cause}`);
@@ -127,7 +138,16 @@ export class SnmpClient {
       });
       return out;
     } catch (error) {
-      throw new SnmpUnreachableError(this.host, (error as Error).message);
+      const message = (error as Error).message;
+
+      // Some agents accept a v2c request and then answer it with v1 semantics:
+      // one absent OID fails the entire batch with NoSuchName instead of being
+      // reported per varbind. A Ricoh MFP that simply omits sysName was
+      // therefore reported as unreachable, on a printer that answers fine.
+      // One request per OID recovers everything it does have.
+      if (isMissingOidError(message)) return this.getOneByOne(oids, keepRaw);
+
+      throw new SnmpUnreachableError(this.host, message);
     } finally {
       session.close();
     }
@@ -155,7 +175,7 @@ export class SnmpClient {
         const message = (error as Error).message;
         // NoSuchName is the v1 way of saying the OID is absent — that is a null.
         // A timeout is a different animal and must not look like a supported-but-empty value.
-        if (/NoSuchName/i.test(message)) reachable = true;
+        if (isMissingOidError(message)) reachable = true;
         else lastError = message;
         out.set(oid, null);
       } finally {
@@ -196,7 +216,14 @@ export class SnmpClient {
       });
       return out;
     } catch (error) {
-      throw new SnmpUnreachableError(this.host, (error as Error).message);
+      const message = (error as Error).message;
+
+      // On a walk, NoSuchName means the branch simply is not there — a printer
+      // with no supplies table, say. Whatever rows were collected before that
+      // point are still good, and an empty map is a truthful answer.
+      if (isMissingOidError(message)) return out;
+
+      throw new SnmpUnreachableError(this.host, message);
     } finally {
       session.close();
     }

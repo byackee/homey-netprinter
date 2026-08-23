@@ -68,5 +68,10 @@
     "en": "The settings page now shows what the device is holding next to what the printer just answered, and says so plainly when the two disagree. Diagnostics only, to track down a panel message that stays on screen after the printer has moved on.",
     "fr": "La page de réglages montre désormais ce que l’appareil retient à côté de ce que l’imprimante vient de répondre, et le signale clairement quand les deux divergent. Diagnostic uniquement, pour traquer un message de panneau qui reste affiché alors que l’imprimante est passée à autre chose.",
     "nl": "De instellingenpagina toont nu wat het apparaat vasthoudt naast wat de printer zojuist antwoordde, en meldt het duidelijk als die twee verschillen. Alleen diagnostiek, om een displaybericht te achterhalen dat blijft staan nadat de printer verder is."
+  },
+  "1.0.15": {
+    "en": "A printer that simply lacks one of the values the app asks for is no longer reported as unreachable. Some printers fail a whole batch of readings because a single one is missing; those readings now come back one by one instead.",
+    "fr": "Une imprimante à laquelle il manque simplement une des valeurs demandées n’est plus signalée comme injoignable. Certaines imprimantes font échouer tout un lot de relevés parce qu’un seul manque ; ces relevés sont désormais repris un par un.",
+    "nl": "Een printer die eenvoudigweg één van de opgevraagde waarden mist, wordt niet langer als onbereikbaar gemeld. Sommige printers laten een hele reeks uitlezingen mislukken omdat er één ontbreekt; die worden nu één voor één opgehaald."
   }
 }

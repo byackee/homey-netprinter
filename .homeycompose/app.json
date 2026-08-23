@@ -1,6 +1,6 @@
 {
   "id": "com.dataweavelabs.netprinter",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "compatibility": ">=12.0.1",
   "sdk": 3,
   "platforms": [
