@@ -46,6 +46,7 @@
     "output_tray": "Bac de sortie",
     "tray_ok": "OK",
     "tray_near_full": "à moitié plein",
-    "tray_full": "plein"
+    "tray_full": "plein",
+    "no_message": "aucun message de panneau"
   }
 }

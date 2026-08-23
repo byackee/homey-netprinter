@@ -77,7 +77,7 @@ export default class PrinterDevice extends Homey.Device {
       version: (this.getSetting('version') as SnmpVersion) ?? 'v2c',
       pollInterval: Number(this.getSetting('poll_interval') ?? 300),
       lowThreshold: Number(this.getSetting('low_threshold') ?? 15),
-      offlineAfter: Math.max(1, Number(this.getSetting('offline_after') ?? DEFAULT_FAILURES_BEFORE_UNAVAILABLE)),
+      offlineAfter: Math.max(0, Number(this.getSetting('offline_after') ?? DEFAULT_FAILURES_BEFORE_UNAVAILABLE)),
     };
   }
 
@@ -135,7 +135,22 @@ export default class PrinterDevice extends Homey.Device {
     await this.safeSet('printer_status', 'offline');
     await this.triggerStatusChange('offline');
 
-    if (this.consecutiveFailures < this.readSettings().offlineAfter) {
+    const { offlineAfter } = this.readSettings();
+
+    // Zero means never mark it unavailable.
+    //
+    // Homey's `unavailable` means "this device is broken": it greys the tile,
+    // but it also hides every reading and — because this driver offers a repair
+    // flow — asks the user to repair a printer they switched off themselves. A
+    // user who wanted the tile greyed found that trade a bad one: "no stats
+    // available as homey insists on a repair". The status capability still says
+    // `offline` on the first missed check either way, so Flows lose nothing.
+    if (offlineAfter === 0) {
+      this.log(`${message} (not marking unavailable: offline_after is 0)`);
+      return;
+    }
+
+    if (this.consecutiveFailures < offlineAfter) {
       this.log(`${message} (attempt ${this.consecutiveFailures}, still treating as asleep)`);
       return;
     }

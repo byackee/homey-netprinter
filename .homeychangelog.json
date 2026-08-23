@@ -58,5 +58,10 @@
     "en": "The panel message kept showing the last thing the printer said, long after the printer stopped saying it — a tray warning could stay on screen after the tray was back. It is cleared now when the printer reports nothing.",
     "fr": "Le message du panneau conservait la dernière phrase de l’imprimante bien après qu’elle ait cessé de la dire : un avertissement de bac pouvait rester affiché alors que le bac était remis. Il est désormais effacé quand l’imprimante ne rapporte plus rien.",
     "nl": "Het displaybericht bleef het laatste tonen wat de printer zei, lang nadat de printer daarmee gestopt was: een ladewaarschuwing kon blijven staan terwijl de lade er weer in zat. Het wordt nu gewist als de printer niets meldt."
+  },
+  "1.0.13": {
+    "en": "Marking a switched-off printer unavailable hid its levels and asked you to repair it. Set the offline threshold to 0 to keep the readings on screen instead; the status still reports Offline. The settings page now always shows the panel message, blank included.",
+    "fr": "Marquer indisponible une imprimante éteinte masquait ses niveaux et proposait de la réparer. Mettez le seuil hors ligne à 0 pour garder les relevés à l’écran ; l’état indique toujours Hors ligne. La page de réglages affiche désormais toujours le message du panneau, vide compris.",
+    "nl": "Een uitgeschakelde printer als niet beschikbaar markeren verborg de niveaus en vroeg om een reparatie. Zet de offline-drempel op 0 om de metingen te behouden; de status meldt nog steeds Offline. De instellingenpagina toont het displaybericht nu altijd, ook als het leeg is."
   }
 }

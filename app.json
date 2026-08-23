@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "com.dataweavelabs.netprinter",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "compatibility": ">=12.0.1",
   "sdk": 3,
   "platforms": [
@@ -558,12 +558,12 @@
                 "nl": "Toon als offline na"
               },
               "hint": {
-                "en": "How many checks in a row must go unanswered before the printer is greyed out. A printer that sleeps deeply needs a few; one you switch off yourself can use 1.",
-                "fr": "Nombre de relevés sans réponse d’affilée avant que l’imprimante soit grisée. Une imprimante qui dort profondément en demande quelques-uns ; une que vous éteignez vous-même peut se contenter de 1.",
-                "nl": "Hoeveel metingen op rij onbeantwoord moeten blijven voordat de printer grijs wordt. Een printer die diep slaapt heeft er een paar nodig; een die je zelf uitschakelt kan met 1 toe."
+                "en": "How many checks in a row must go unanswered before Homey marks the printer unavailable — which greys the tile, but also hides its levels and offers a repair. Set 0 to never mark it unavailable and keep the last readings on screen; the status still reports Offline either way.",
+                "fr": "Nombre de relevés sans réponse d’affilée avant que Homey marque l’imprimante indisponible — ce qui grise la tuile, mais masque aussi ses niveaux et propose une réparation. Mettez 0 pour ne jamais la marquer indisponible et garder les derniers relevés à l’écran ; l’état indique Hors ligne dans les deux cas.",
+                "nl": "Hoeveel metingen op rij onbeantwoord moeten blijven voordat Homey de printer als niet beschikbaar markeert — dat maakt de tegel grijs, maar verbergt ook de niveaus en biedt een reparatie aan. Zet 0 om dit nooit te doen en de laatste metingen te behouden; de status meldt hoe dan ook Offline."
               },
               "value": 3,
-              "min": 1,
+              "min": 0,
               "max": 10,
               "units": {
                 "en": "checks",

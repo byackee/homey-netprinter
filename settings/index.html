@@ -153,7 +153,10 @@
 
           const r = device.reading;
           const bits = [r.status];
-          if (r.display) bits.push('"' + r.display + '"');
+          // Always shown, blank included. Hiding it when the printer says nothing
+          // makes "no message" and "not reported here" look identical, which is
+          // the one distinction someone debugging a stuck message needs.
+          bits.push(r.display ? '"' + r.display + '"' : Homey.__('settings.no_message'));
           if (r.pages !== null) bits.push(r.pages + ' ' + Homey.__('settings.pages'));
           if (r.outputTray && r.outputTray !== 'unknown') {
             bits.push(Homey.__('settings.output_tray') + ': ' + Homey.__('settings.tray_' + r.outputTray));
