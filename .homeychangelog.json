@@ -23,5 +23,10 @@
     "en": "Fixes a waste toner bottle reading 0 % and raising a false low-supply alarm on printers that report it as life remaining rather than as how full it is. The settings page now shows each supply exactly as the printer sent it.",
     "fr": "Corrige un bac de récupération affiché à 0 % et déclenchant une fausse alarme de consommable bas sur les imprimantes qui le rapportent en durée de vie restante plutôt qu’en taux de remplissage. La page de réglages montre désormais chaque consommable tel que l’imprimante l’a envoyé.",
     "nl": "Lost op dat een afvaltonerfles 0 % aangaf en een vals alarm voor laag verbruik gaf op printers die hem rapporteren als resterende levensduur in plaats van als vulgraad. De instellingenpagina toont nu elk verbruiksartikel precies zoals de printer het verstuurde."
+  },
+  "1.0.6": {
+    "en": "Repairing a printer — used to correct its address after a DHCP change — failed with an error instead of opening. It works again.",
+    "fr": "La réparation d’une imprimante, qui sert à corriger son adresse après un changement DHCP, échouait avec une erreur au lieu de s’ouvrir. Elle fonctionne de nouveau.",
+    "nl": "Het repareren van een printer — bedoeld om het adres te corrigeren na een DHCP-wijziging — mislukte met een foutmelding in plaats van te openen. Het werkt weer."
   }
 }

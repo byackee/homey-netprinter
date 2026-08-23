@@ -1,17 +1,13 @@
 <!--
-  This view is deliberately present in BOTH drivers/printer/pair/ and
-  drivers/printer/repair/, and the two files are identical.
+  Repair views live in drivers/<driver>/repair/<viewId>.html.
 
-  Homey documents where *pairing* views live — drivers/<id>/pair/<viewId>.html —
-  and says nothing about repair views. `repair` does not appear in the app
-  manifest schema at all, and `homey app validate` checks pair views only, so a
-  repair view in the wrong folder ships without a warning and fails at runtime
-  with "error getting file", which is what a user reported.
-
-  Pairing works from pair/, so pair/ is evidently not where repair is read from.
-  Until a user confirms which folder Homey actually reads, the file sits in both:
-  one copy is dead weight, the other is the repair flow working. Delete the loser
-  once we know. Keep them identical in the meantime.
+  Homey documents drivers/<driver>/pair/<viewId>.html for pairing views and says
+  nothing at all about repair views: `repair` appears nowhere in the app manifest
+  schema, and `homey app validate` checks pair views only. This file therefore
+  sat in pair/ for three releases, validated clean at publish level, and failed
+  the moment a user tapped Repair with `unknown_error_getting_file`. Confirmed by
+  moving it here and watching the view open. test/repair-views.test.mts keeps it
+  from drifting back.
 -->
 <style>
   .intro { color: var(--homey-text-color-light); margin-bottom: 1.25rem; line-height: 1.45; }
