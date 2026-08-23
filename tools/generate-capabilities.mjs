@@ -62,11 +62,13 @@ const TRAYS = [1, 2, 3, 4].map((n) => ({
 /**
  * Every capability icon, as a filled path with no stroke anywhere.
  *
- * This is not a style choice. The web app renders real SVG, but the mobile app
- * rasterises each icon into a monochrome mask, and a shape drawn only with
- * `stroke` has no fill to rasterise — so stroked icons appeared correctly in the
- * browser and as nothing at all on a phone. Athom's own capability vectors are
- * filled paths for the same reason. Keep them that way.
+ * This is not a style choice. The web app renders real SVG; the mobile app does
+ * not honour `fill="none"` and fills each path regardless. Filling the interior
+ * of an outline drawing gives a featureless silhouette, which is how a stroked
+ * printer icon reached a user's phone as a solid cross and a cartridge as a
+ * plain rectangle — correct in the browser, unreadable next to it. Filling a
+ * shape that was drawn to be filled looks the same everywhere. Athom's own
+ * capability vectors are filled paths for the same reason. Keep them that way.
  */
 const ICONS = {
   ink: '<path d="M12 2.3c4.1 5 6.2 8.4 6.2 11.1a6.2 6.2 0 0 1-12.4 0c0-2.7 2.1-6.1 6.2-11.1Z"/>',
