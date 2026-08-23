@@ -11,6 +11,7 @@ interface PrinterSettings {
   version: SnmpVersion;
   pollInterval: number;
   lowThreshold: number;
+  offlineAfter: number;
 }
 
 /**
@@ -19,8 +20,13 @@ interface PrinterSettings {
  * Consumer printers drop off the network while asleep and answer again on the
  * next job. Marking the device unavailable on the first timeout would make it
  * flicker all day, so a short outage is absorbed silently.
+ *
+ * This is only the default: how long a printer may stay silent before it counts
+ * as off is a property of the printer, not of the app. One that sleeps deeply
+ * needs the grace; one the user switches off at the wall is off the moment it
+ * stops answering, and waiting three checks to grey it out just looks broken.
  */
-const FAILURES_BEFORE_UNAVAILABLE = 3;
+const DEFAULT_FAILURES_BEFORE_UNAVAILABLE = 3;
 
 export default class PrinterDevice extends Homey.Device {
   private reader!: PrinterReader;
@@ -61,6 +67,7 @@ export default class PrinterDevice extends Homey.Device {
       version: (this.getSetting('version') as SnmpVersion) ?? 'v2c',
       pollInterval: Number(this.getSetting('poll_interval') ?? 300),
       lowThreshold: Number(this.getSetting('low_threshold') ?? 15),
+      offlineAfter: Math.max(1, Number(this.getSetting('offline_after') ?? DEFAULT_FAILURES_BEFORE_UNAVAILABLE)),
     };
   }
 
@@ -118,7 +125,7 @@ export default class PrinterDevice extends Homey.Device {
     await this.safeSet('printer_status', 'offline');
     await this.triggerStatusChange('offline');
 
-    if (this.consecutiveFailures < FAILURES_BEFORE_UNAVAILABLE) {
+    if (this.consecutiveFailures < this.readSettings().offlineAfter) {
       this.log(`${message} (attempt ${this.consecutiveFailures}, still treating as asleep)`);
       return;
     }

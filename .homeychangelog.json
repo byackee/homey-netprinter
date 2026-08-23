@@ -28,5 +28,10 @@
     "en": "Repairing a printer — used to correct its address after a DHCP change — failed with an error instead of opening. It works again.",
     "fr": "La réparation d’une imprimante, qui sert à corriger son adresse après un changement DHCP, échouait avec une erreur au lieu de s’ouvrir. Elle fonctionne de nouveau.",
     "nl": "Het repareren van een printer — bedoeld om het adres te corrigeren na een DHCP-wijziging — mislukte met een foutmelding in plaats van te openen. Het werkt weer."
+  },
+  "1.0.7": {
+    "en": "A printer you switch off can now be greyed out sooner: a new device setting chooses how many unanswered checks it takes. Also includes the repair fix from 1.0.6.",
+    "fr": "Une imprimante que vous éteignez peut désormais être grisée plus tôt : un nouveau réglage choisit le nombre de relevés sans réponse nécessaires. Inclut aussi le correctif de réparation de la 1.0.6.",
+    "nl": "Een printer die je uitschakelt kan nu eerder grijs worden: een nieuwe apparaatinstelling bepaalt hoeveel onbeantwoorde metingen daarvoor nodig zijn. Bevat ook de reparatiefix uit 1.0.6."
   }
 }
