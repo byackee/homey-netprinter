@@ -58,6 +58,9 @@ interface DeviceReport {
       level: number;
       maxCapacity: number;
       unit: string;
+      /** prtMarkerSuppliesClass: 3 counts down as it is used, 4 counts up as it fills. */
+      supplyClass: number | null;
+      receptacle: boolean;
     }>;
     trays: Array<{ name: string; media: string; percent: number | null }>;
     outputTray: string;
@@ -120,6 +123,8 @@ async function getDiagnostics({ homey }: Request): Promise<{
             level: s.level,
             maxCapacity: s.maxCapacity,
             unit: s.unit,
+            supplyClass: s.supplyClass,
+            receptacle: s.isReceptacle,
           })),
           trays: snapshot.inputTrays.map((t) => ({
             name: t.name,

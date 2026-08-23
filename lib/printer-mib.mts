@@ -200,6 +200,12 @@ export interface Supply {
   maxCapacity: number;
   /** A {@link SUPPLY_UNIT} name — what {@link Supply.level} is counted in. */
   unit: string;
+  /**
+   * prtMarkerSuppliesClass as sent, which decides whether the level counts up or
+   * down. Kept raw because a vendor that reports it one way and means the other
+   * is invisible in {@link Supply.isReceptacle} and obvious here.
+   */
+  supplyClass: number | null;
 }
 
 /**
@@ -549,6 +555,15 @@ export function decodeSupplyType(value: number | null): string {
 /** True when a supply row is a receptacle that fills up rather than drains. */
 export function isReceptacle(supplyClass: number | null, type: string): boolean {
   if (supplyClass === SUPPLY_CLASS.receptacle) return true;
-  // Some printers leave the class at `other` but still name a waste type.
+
+  // An explicit `consumed` is the printer saying this level counts down as the
+  // part is used up — and several vendors report a waste container that way,
+  // as life left rather than as how full it is. A Lexmark C3326dw reports its
+  // waste toner bottle as consumed at 100 when the bottle is brand new.
+  // Guessing from the type name regardless inverted that into 0 % room left and
+  // rang the low-supply alarm on a printer with nothing whatsoever wrong.
+  if (supplyClass === SUPPLY_CLASS.consumed) return false;
+
+  // Class absent or `other`: the type name is the only thing left to go on.
   return WASTE_TYPES.has(type);
 }

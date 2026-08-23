@@ -19,6 +19,7 @@ function supply(colour: SupplyColour, percent: number | null, description = ''):
     percent,
     someRemaining: false,
     isReceptacle: colour === 'waste',
+    supplyClass: colour === 'waste' ? 4 : 3,
     level: percent ?? -2,
     maxCapacity: percent === null ? -2 : 100,
     unit: 'percent',

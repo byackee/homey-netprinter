@@ -110,7 +110,13 @@
     function rawLevel(supply) {
       if (supply.level === undefined) return '';
       const unit = supply.unit && supply.unit !== 'unknown' ? ' ' + supply.unit : '';
-      return '<div class="sub">' + esc(supply.level + ' / ' + supply.maxCapacity + unit) + '</div>';
+      // The class decides whether the level counts down as the part is used or up
+      // as it fills. A vendor that states one and means the other is the single
+      // hardest reading bug to see, and impossible to see without this.
+      const kind = supply.receptacle ? Homey.__('settings.fills') : Homey.__('settings.drains');
+      const cls = supply.supplyClass === null || supply.supplyClass === undefined
+        ? '' : ' · class ' + supply.supplyClass;
+      return '<div class="sub">' + esc(supply.level + ' / ' + supply.maxCapacity + unit + cls + ' · ' + kind) + '</div>';
     }
 
     function traysTable(trays) {

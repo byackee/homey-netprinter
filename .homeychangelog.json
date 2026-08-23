@@ -18,5 +18,10 @@
     "en": "Paper trays, output tray, cover and the printer’s own alert text are now read and shown. The low-supply alarm names the consumable behind it, and no longer fires for a consumable that had no row. Capability icons now appear in the mobile app.",
     "fr": "Les bacs à papier, le bac de sortie, les capots et le texte d’alerte de l’imprimante sont maintenant relevés et affichés. L’alarme de consommable bas nomme le consommable en cause, et ne se déclenche plus pour un consommable sans ligne. Les icônes de capacité s’affichent enfin dans l’app mobile.",
     "nl": "Papierladen, uitvoerlade, kleppen en de eigen meldingstekst van de printer worden nu uitgelezen en getoond. Het alarm voor laag verbruik noemt het verbruiksartikel erachter, en gaat niet meer af voor een artikel zonder eigen rij. Capability-iconen verschijnen nu ook in de mobiele app."
+  },
+  "1.0.5": {
+    "en": "Fixes a waste toner bottle reading 0 % and raising a false low-supply alarm on printers that report it as life remaining rather than as how full it is. The settings page now shows each supply exactly as the printer sent it.",
+    "fr": "Corrige un bac de récupération affiché à 0 % et déclenchant une fausse alarme de consommable bas sur les imprimantes qui le rapportent en durée de vie restante plutôt qu’en taux de remplissage. La page de réglages montre désormais chaque consommable tel que l’imprimante l’a envoyé.",
+    "nl": "Lost op dat een afvaltonerfles 0 % aangaf en een vals alarm voor laag verbruik gaf op printers die hem rapporteren als resterende levensduur in plaats van als vulgraad. De instellingenpagina toont nu elk verbruiksartikel precies zoals de printer het verstuurde."
   }
 }

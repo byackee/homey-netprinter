@@ -46,6 +46,8 @@
     "output_tray": "Uitvoerlade",
     "tray_ok": "OK",
     "tray_near_full": "half vol",
-    "tray_full": "vol"
+    "tray_full": "vol",
+    "fills": "loopt vol",
+    "drains": "loopt leeg"
   }
 }

@@ -227,6 +227,7 @@ export class PrinterReader {
         level,
         maxCapacity: capacity,
         unit,
+        supplyClass,
       });
     });
 

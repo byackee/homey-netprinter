@@ -46,6 +46,8 @@
     "output_tray": "Output tray",
     "tray_ok": "OK",
     "tray_near_full": "half full",
-    "tray_full": "full"
+    "tray_full": "full",
+    "fills": "fills up",
+    "drains": "drains"
   }
 }

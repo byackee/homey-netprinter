@@ -349,3 +349,24 @@ describe('summariseAlerts bounds', () => {
     assert.ok(summary.endsWith('…'));
   });
 });
+
+describe('isReceptacle honours an explicit class', () => {
+  it('believes the printer when it says a waste part is consumed', () => {
+    // A Lexmark C3326dw reports its waste toner bottle as consumed at 100 when
+    // the bottle is new. Guessing from the type name inverted that to 0 % room
+    // left and rang the low-supply alarm on a healthy printer.
+    assert.equal(isReceptacle(3, 'wasteToner'), false);
+    assert.equal(supplyPercent(100, 100, isReceptacle(3, 'wasteToner')), 100);
+  });
+
+  it('still inverts when the printer says receptacle', () => {
+    assert.equal(isReceptacle(4, 'wasteToner'), true);
+    assert.equal(supplyPercent(100, 100, isReceptacle(4, 'wasteToner')), 0);
+  });
+
+  it('falls back to the type name only when the class says nothing useful', () => {
+    assert.equal(isReceptacle(null, 'wasteToner'), true);
+    assert.equal(isReceptacle(1, 'wasteToner'), true);
+    assert.equal(isReceptacle(1, 'toner'), false);
+  });
+});
