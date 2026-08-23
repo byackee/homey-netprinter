@@ -19,7 +19,9 @@
     "manual": "Toevoegen via IP-adres",
     "add": "Toevoegen",
     "repair_title": "Adres corrigeren",
-    "repair_intro": "Voer het huidige IP-adres van de printer in. Gebruik dit wanneer de printer een ander adres heeft gekregen en niet meer antwoordt."
+    "repair_intro": "Voer het huidige IP-adres van de printer in. Gebruik dit wanneer de printer een ander adres heeft gekregen en niet meer antwoordt.",
+    "search": "Mijn netwerk doorzoeken",
+    "search_again": "Opnieuw zoeken"
   },
   "settings": {
     "printers": "Gekoppelde printers",

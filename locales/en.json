@@ -19,7 +19,9 @@
     "manual": "Add by IP address instead",
     "add": "Add",
     "repair_title": "Correct the address",
-    "repair_intro": "Enter the printer's current IP address. Use this when the printer moved to a new address and stopped answering."
+    "repair_intro": "Enter the printer's current IP address. Use this when the printer moved to a new address and stopped answering.",
+    "search": "Search my network",
+    "search_again": "Search again"
   },
   "settings": {
     "printers": "Paired printers",

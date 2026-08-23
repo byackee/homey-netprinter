@@ -89,6 +89,11 @@ npx tsc -p tsconfig.tools.json && node .toolsbuild/tools/probe.mjs 192.168.1.50 
   `onHomeyReady(Homey)`. Code outside that function which touches Homey throws a
   ReferenceError that nothing surfaces. In a *pairing* view the opposite holds:
   `Homey` is global there.
+- **A Homey API call is cut off after ten seconds.** The subnet sweep takes
+  around sixteen, so the endpoint starts it and the settings page polls for
+  progress; awaiting it produced a "timeout after 10000ms" in the user's face.
+  Every other endpoint reads with a short timeout and no retry for the same
+  reason — one unreachable printer must not push the page past the limit.
 - **Do not await the first poll in `onInit`.** Homey initialises devices in
   sequence, so blocking on a sleeping printer holds up every device behind it.
 

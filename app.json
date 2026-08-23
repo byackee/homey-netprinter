@@ -99,6 +99,11 @@
       "method": "POST",
       "path": "/test",
       "role": "owner"
+    },
+    "postScan": {
+      "method": "POST",
+      "path": "/scan",
+      "role": "owner"
     }
   },
   "esm": true,

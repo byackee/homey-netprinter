@@ -13,8 +13,15 @@ import type NetworkPrinterApp from './app.mjs';
 
 import { PrinterReader } from './lib/printer-reader.mjs';
 import { negotiateVersion } from './lib/snmp-client.mjs';
-import { scanSubnet, subnetOf } from './lib/network-scan.mjs';
+import { subnetOf } from './lib/network-scan.mjs';
 import { vendorName } from './lib/vendors.mjs';
+
+/**
+ * A Homey API call is cut off after ten seconds. Every endpoint here has to
+ * answer well inside that, which is why the subnet sweep is started rather than
+ * awaited, and why reads use a short timeout with no retry.
+ */
+const API_READ_TIMEOUT_MS = 2_500;
 
 /** The shape Homey hands every endpoint. */
 interface Request {
@@ -70,10 +77,13 @@ async function getDiagnostics({ homey }: Request): Promise<{
     };
 
     try {
+      // A short timeout, because one unreachable printer must not push the
+      // whole page past the ten-second API limit.
       const snapshot = await new PrinterReader(
         host,
         community,
         version === 'v1' ? 'v1' : 'v2c',
+        API_READ_TIMEOUT_MS,
       ).read();
 
       return {
@@ -99,20 +109,46 @@ async function getDiagnostics({ homey }: Request): Promise<{
   return { subnet, devices: reports };
 }
 
-/** Sweeps the subnet on demand, so the user can see what the pairing sweep would find. */
-async function getScan({ homey }: Request): Promise<{
+/** One sweep result as the settings page consumes it. */
+interface ScanReply {
+  running: boolean;
   subnet: string | null;
+  error: string | null;
   found: Array<{ host: string; model: string | null; serial: string | null; vendor: string | null }>;
-}> {
-  const localAddress = await homey.cloud.getLocalAddress().catch(() => '');
-  const subnet = subnetOf(String(localAddress));
-  if (subnet === null) return { subnet: null, found: [] };
+}
 
-  const found = await scanSubnet(subnet);
+function scanReply(state: {
+  running: boolean;
+  subnet: string | null;
+  error: string | null;
+  found: Array<{ host: string; model: string | null; serial: string | null; vendor: string | null }>;
+}): ScanReply {
   return {
-    subnet,
-    found: found.map((p) => ({ host: p.host, model: p.model, serial: p.serial, vendor: p.vendor })),
+    running: state.running,
+    subnet: state.subnet,
+    error: state.error,
+    found: state.found.map((p) => ({
+      host: p.host, model: p.model, serial: p.serial, vendor: p.vendor,
+    })),
   };
+}
+
+/**
+ * Starts a subnet sweep and returns at once.
+ *
+ * Awaiting the sweep here is what made the settings page fail with a ten-second
+ * timeout: a /24 takes around sixteen. The app owns the sweep; this only kicks
+ * it off, and `getScan` reports progress.
+ */
+async function postScan({ homey }: Request): Promise<ScanReply> {
+  const app = homey.app as NetworkPrinterApp;
+  return scanReply(await app.startScan());
+}
+
+/** Reports the running or last-finished sweep, including partial results. */
+async function getScan({ homey }: Request): Promise<ScanReply> {
+  const app = homey.app as NetworkPrinterApp;
+  return scanReply(app.getScanState());
 }
 
 /** Tests one address, reporting exactly what it answered — or exactly why it did not. */
@@ -130,13 +166,15 @@ async function postTest({ body }: Request): Promise<{
 
   if (!host) return { ok: false, message: 'Enter an IP address.' };
 
-  const version = await negotiateVersion(host, community);
+  // Two versions tried at this timeout each, then one read: comfortably inside
+  // the ten seconds the API allows.
+  const version = await negotiateVersion(host, community, API_READ_TIMEOUT_MS);
   if (version === null) {
     return { ok: false, message: `No SNMP answer from ${host} on v2c or v1.` };
   }
 
   try {
-    const reader = new PrinterReader(host, community, version);
+    const reader = new PrinterReader(host, community, version, API_READ_TIMEOUT_MS);
     const identity = await reader.readIdentity();
     const snapshot = await reader.read();
 
@@ -157,4 +195,4 @@ async function postTest({ body }: Request): Promise<{
  * Homey resolves endpoints off the default export, keyed by the names declared
  * in `.homeycompose/app.json`.
  */
-export default { getDiagnostics, getScan, postTest };
+export default { getDiagnostics, getScan, postScan, postTest };

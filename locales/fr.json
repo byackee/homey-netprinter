@@ -19,7 +19,9 @@
     "manual": "Ajouter plutôt par adresse IP",
     "add": "Ajouter",
     "repair_title": "Corriger l’adresse",
-    "repair_intro": "Saisissez l’adresse IP actuelle de l’imprimante. À utiliser quand elle a changé d’adresse et ne répond plus."
+    "repair_intro": "Saisissez l’adresse IP actuelle de l’imprimante. À utiliser quand elle a changé d’adresse et ne répond plus.",
+    "search": "Rechercher sur mon réseau",
+    "search_again": "Relancer la recherche"
   },
   "settings": {
     "printers": "Imprimantes appairées",

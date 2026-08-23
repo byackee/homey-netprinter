@@ -166,30 +166,57 @@
       }
     }
 
+    function renderSweep(data) {
+      const target = document.getElementById('sweep-result');
+
+      if (data.error) {
+        target.innerHTML = '<p class="bad">' + esc(data.error) + '</p>';
+        return;
+      }
+      if (!data.subnet) {
+        target.innerHTML = '<p class="bad">' + esc(Homey.__('settings.no_subnet')) + '</p>';
+        return;
+      }
+
+      const cards = data.found.map((printer) =>
+        '<div class="card">' +
+        '<div class="title">' + esc([printer.vendor, printer.model].filter(Boolean).join(' ')) + '</div>' +
+        '<div class="sub">' + esc(printer.host) +
+        (printer.serial ? ' · ' + esc(printer.serial) : '') + '</div></div>').join('');
+
+      if (data.running) {
+        // Partial results are shown as they arrive rather than a blank wait.
+        target.innerHTML = cards +
+          '<p class="hint">' + esc(Homey.__('settings.sweeping')) + '</p>';
+        return;
+      }
+      target.innerHTML = cards || ('<p class="hint">' + esc(Homey.__('settings.sweep_empty')) +
+        ' (' + esc(data.subnet) + '.0/24)</p>');
+    }
+
+    /*
+     * The sweep is started and then polled. Awaiting it in one call is what made
+     * this page fail: a Homey API call is cut off after ten seconds and a /24
+     * takes around sixteen.
+     */
     async function runSweep() {
       const button = document.getElementById('sweep');
-      const target = document.getElementById('sweep-result');
       button.disabled = true;
-      target.innerHTML = '<p class="hint">' + esc(Homey.__('settings.sweeping')) + '</p>';
+      document.getElementById('sweep-result').innerHTML =
+        '<p class="hint">' + esc(Homey.__('settings.sweeping')) + '</p>';
 
       try {
-        const data = await call('GET', '/scan');
-        if (!data.subnet) {
-          target.innerHTML = '<p class="bad">' + esc(Homey.__('settings.no_subnet')) + '</p>';
-          return;
+        renderSweep(await call('POST', '/scan'));
+
+        for (;;) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          const data = await call('GET', '/scan');
+          renderSweep(data);
+          if (!data.running) break;
         }
-        if (!data.found.length) {
-          target.innerHTML = '<p class="hint">' + esc(Homey.__('settings.sweep_empty')) +
-            ' (' + esc(data.subnet) + '.0/24)</p>';
-          return;
-        }
-        target.innerHTML = data.found.map((printer) =>
-          '<div class="card">' +
-          '<div class="title">' + esc([printer.vendor, printer.model].filter(Boolean).join(' ')) + '</div>' +
-          '<div class="sub">' + esc(printer.host) +
-          (printer.serial ? ' · ' + esc(printer.serial) : '') + '</div></div>').join('');
       } catch (error) {
-        target.innerHTML = '<p class="bad">' + esc(error.message) + '</p>';
+        document.getElementById('sweep-result').innerHTML =
+          '<p class="bad">' + esc(error.message) + '</p>';
       } finally {
         button.disabled = false;
       }
