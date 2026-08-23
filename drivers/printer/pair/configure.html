@@ -1,5 +1,3 @@
-<script type="text/javascript" src="/homey.js" data-origin="pair"></script>
-
 <style>
   .intro { color: var(--homey-text-color-light); margin-bottom: 1.25rem; line-height: 1.45; }
   .field { margin-bottom: 1rem; }
@@ -103,8 +101,7 @@
     })
     .catch(() => { /* No stored config; an empty form is correct. */ });
 
-  Homey.setTitle(Homey.__('pair.repair_title'));
+  // No /homey.js include, no ready(), no setTitle(): a pairing view is given its
+  // API by Homey, and loading a second copy leaves every emit unheard.
   Homey.addNavigationButton({ id: 'next', title: Homey.__('pair.test') }, probe);
-
-  Homey.ready();
 </script>

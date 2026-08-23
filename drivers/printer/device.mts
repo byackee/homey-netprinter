@@ -34,6 +34,8 @@ export default class PrinterDevice extends Homey.Device {
   private lastErrorAlarm = false;
   /** Supplies already below the threshold, so the low trigger fires once per crossing. */
   private lowSupplies = new Set<string>();
+  /** Titles already stored, so a capability is only renamed when it really changes. */
+  private appliedTitles = new Map<string, string>();
 
   override async onInit(): Promise<void> {
     this.buildReader();
@@ -135,9 +137,16 @@ export default class PrinterDevice extends Homey.Device {
     // read rather than a printer with no cartridges. Every printer has at least one.
     await this.syncCapabilities(plan.capabilities, snapshot.supplies.length > 0);
 
+    // The printer's own wording names the exact cartridge to reorder. Writing it
+    // is persistent, and these titles change only when a cartridge is replaced by
+    // a different type — so it is written on change, not on every poll, which
+    // would otherwise mean a stored write every five minutes forever.
     for (const [capability, title] of plan.titles) {
-      // The printer's own wording names the exact cartridge to reorder.
-      await this.setCapabilityOptions(capability, { title }).catch(() => {});
+      if (this.appliedTitles.get(capability) === title) continue;
+
+      await this.setCapabilityOptions(capability, { title })
+        .then(() => this.appliedTitles.set(capability, title))
+        .catch((e: Error) => this.error(`Could not title ${capability}: ${e.message}`));
     }
 
     for (const { id, value } of plan.values) {

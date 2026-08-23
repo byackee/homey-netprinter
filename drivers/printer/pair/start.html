@@ -1,5 +1,3 @@
-<script type="text/javascript" src="/homey.js" data-origin="pair"></script>
-
 <style>
   .intro { color: var(--homey-text-color-light); margin-bottom: 1rem; line-height: 1.45; }
   .row {
@@ -33,12 +31,35 @@
   button:disabled { opacity: .55; cursor: default; }
   #search { width: 100%; padding: .7rem 1rem; font-weight: 600; }
   .hidden { display: none; }
+
+  /* Progress while the sweep runs. The sweep takes around sixteen seconds, which
+     is long enough that a still screen reads as broken. */
+  .spinner {
+    display: inline-block; width: 15px; height: 15px; margin-right: .5rem;
+    vertical-align: -2px; border-radius: 50%;
+    border: 2px solid var(--homey-line-color);
+    border-top-color: var(--homey-color-blue, #1B6AC9);
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .sweep-bar { height: 3px; border-radius: 2px; background: var(--homey-line-color); margin: .75rem 0 1rem; overflow: hidden; }
+  .sweep-bar > span {
+    display: block; height: 100%; width: 40%; border-radius: 2px;
+    background: var(--homey-color-blue, #1B6AC9);
+    animation: slide 1.4s ease-in-out infinite;
+  }
+  @keyframes slide {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(250%); }
+  }
 </style>
 
 <h1 data-i18n="pair.title"></h1>
 <p class="intro" data-i18n="pair.intro"></p>
 
 <button type="button" id="search" disabled></button>
+<div id="progress" class="sweep-bar hidden"><span></span></div>
 <div id="status" class="status"></div>
 <div id="list"></div>
 
@@ -53,19 +74,19 @@
 
 <script type="text/javascript">
   /*
-   * Defensive on purpose. The previous version of this view died before it ran a
-   * single line of useful code: the driver's trace showed "onPair start" and
-   * nothing after it, not even the log this view emits on startup. Anything that
-   * throws up here takes the whole view with it and leaves an inert screen with
-   * no clue why.
+   * Two things this view must not do, both learned the hard way.
    *
-   * So: Homey.ready() goes first, before any other Homey call; the very next
-   * statement reports that the script is alive; and every optional API is
-   * wrapped, because a call that does not exist in the pairing frontend would
-   * otherwise be indistinguishable from a broken sweep.
+   * It must not load /homey.js itself. Homey injects its own API into a pairing
+   * view, and including the script again produced a second instance that was not
+   * attached to the session: the script ran, the button relabelled itself, and
+   * every emit vanished — the driver logged "onPair start" and never heard from
+   * the view again.
+   *
+   * It must not call Homey.ready() or Homey.setTitle() either. The pairing view
+   * that does work in these apps calls neither, and uses Homey.emit() directly.
+   *
+   * The reporting stays: it is what turned a blank screen into a located fault.
    */
-  Homey.ready();
-
   function report(message) {
     try { Homey.emit('viewLog', String(message)); } catch (e) { /* nothing we can do */ }
   }
@@ -98,9 +119,20 @@
   let busy = false;
   let sweeping = false;
 
+  const progressEl = document.getElementById('progress');
+
   function setStatus(text, bad) {
     statusEl.textContent = text || '';
     statusEl.className = bad ? 'status bad' : 'status';
+  }
+
+  /** Shows the moving bar and a spinning marker while the sweep is under way. */
+  function setSearching(on, text) {
+    progressEl.className = on ? 'sweep-bar' : 'sweep-bar hidden';
+    if (on) {
+      statusEl.className = 'status';
+      statusEl.innerHTML = '<span class="spinner"></span>' + escapeHtml(text || '');
+    }
   }
 
   function escapeHtml(value) {
@@ -160,7 +192,7 @@
     searchEl.disabled = true;
     searchEl.textContent = t('pair.searching_button', 'Searching\u2026');
     listEl.innerHTML = '';
-    setStatus(t('pair.searching', 'Searching\u2026'));
+    setSearching(true, t('pair.searching', 'Searching\u2026'));
     report('sweep: requesting scan_start');
 
     try {
@@ -168,6 +200,7 @@
       report('sweep: scan_start returned ' + JSON.stringify(started));
 
       if (!started || !started.started) {
+        setSearching(false);
         setStatus(t('pair.none_found', 'No printer found.'));
         return;
       }
@@ -180,6 +213,7 @@
         render(data.printers || []);
         if (!data.running) {
           report('sweep: finished with ' + (data.printers || []).length);
+          setSearching(false);
           setStatus((data.printers || []).length ? '' : t('pair.none_found', 'No printer found.'));
           return;
         }
@@ -187,8 +221,10 @@
       report('sweep: gave up waiting');
     } catch (error) {
       report('sweep failed: ' + ((error && error.message) || error));
+      setSearching(false);
       setStatus((error && error.message) || String(error), true);
     } finally {
+      setSearching(false);
       sweeping = false;
       searchEl.disabled = false;
       searchEl.textContent = t('pair.search_again', 'Search again');
@@ -227,11 +263,6 @@
   // cannot leave a button that looks empty and unclickable.
   searchEl.textContent = t('pair.searching_button', 'Searching\u2026');
   addEl.textContent = t('pair.add', 'Add');
-
-  // setTitle is optional: if the pairing frontend does not provide it, losing the
-  // title is acceptable, losing the whole view is not.
-  try { Homey.setTitle(t('pair.title', 'Find your printer')); }
-  catch (e) { report('setTitle unavailable: ' + e.message); }
 
   report('view ready, starting sweep');
   sweep();
