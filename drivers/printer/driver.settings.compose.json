@@ -65,9 +65,9 @@
         "type": "number",
         "label": { "en": "Low-supply threshold", "fr": "Seuil de consommable bas", "nl": "Drempel laag verbruiksartikel" },
         "hint": {
-          "en": "The alarm and the low-supply Flow card fire at or below this percentage.",
-          "fr": "L’alarme et la carte Flow « consommable bas » se déclenchent à ce pourcentage ou en dessous.",
-          "nl": "Het alarm en de Flow-kaart voor laag verbruik reageren op dit percentage of lager."
+          "en": "The supply and paper alarms, and the low-supply Flow card, fire at or below this percentage.",
+          "fr": "Les alarmes de consommable et de papier, et la carte Flow « consommable bas », se déclenchent à ce pourcentage ou en dessous.",
+          "nl": "De alarmen voor verbruiksartikelen en papier, en de Flow-kaart voor laag verbruik, reageren op dit percentage of lager."
         },
         "value": 15,
         "min": 1,

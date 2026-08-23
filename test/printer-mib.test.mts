@@ -300,7 +300,8 @@ describe('summariseAlerts', () => {
         { severity: 'warning', code: 1101, group: 9, description: '84 Photoconductor low' },
         { severity: 'critical', code: 8, group: 5, description: 'Close front door' },
       ]),
-      '84 Photoconductor low · Close front door',
+      // The critical row leads: it is the one that stopped the printer.
+      'Close front door · 84 Photoconductor low',
     );
   });
 
@@ -320,5 +321,31 @@ describe('summariseAlerts', () => {
       summariseAlerts([{ severity: 'other', code: null, group: null, description: '  ' }]),
       null,
     );
+  });
+});
+
+describe('summariseAlerts bounds', () => {
+  const alert = (description: string, severity: 'critical' | 'warning' = 'warning') =>
+    ({ severity, code: null, group: null, description });
+
+  it('puts what stops the printer first', () => {
+    assert.equal(
+      summariseAlerts([alert('Toner low'), alert('Paper jam', 'critical')]),
+      'Paper jam · Toner low',
+    );
+  });
+
+  it('does not turn a tile into a paragraph', () => {
+    const many = Array.from({ length: 12 }, (_, i) => alert(`Alert number ${i}`));
+    const summary = summariseAlerts(many);
+    assert.ok(summary !== null);
+    assert.equal(summary.split(' · ').length, 5);
+  });
+
+  it('truncates rather than emitting an unbounded string', () => {
+    const summary = summariseAlerts([alert('x'.repeat(400))]);
+    assert.ok(summary !== null);
+    assert.ok(summary.length <= 200);
+    assert.ok(summary.endsWith('…'));
   });
 });

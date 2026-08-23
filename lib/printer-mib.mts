@@ -479,15 +479,32 @@ export function summariseAlerts(alerts: readonly PrinterAlert[]): string | null 
   const seen = new Set<string>();
   const lines: string[] = [];
 
-  for (const alert of alerts) {
+  // Critical alerts first: the table is in the printer's own order, and a jam
+  // must not be pushed off the end by four rows about paper sizes.
+  const ordered = [...alerts].sort((a, b) =>
+    Number(b.severity === 'critical') - Number(a.severity === 'critical'));
+
+  for (const alert of ordered) {
     const text = alert.description.trim();
     if (text.length === 0 || seen.has(text)) continue;
     seen.add(text);
     lines.push(text);
+    if (lines.length === MAX_ALERTS) break;
   }
 
-  return lines.length > 0 ? lines.join(' · ') : null;
+  if (lines.length === 0) return null;
+
+  // A tile is read at a glance. Some printers keep a dozen rows here, and a
+  // paragraph of them tells the user less than the first line alone would.
+  const summary = lines.join(' · ');
+  return summary.length > MAX_ALERT_LENGTH
+    ? `${summary.slice(0, MAX_ALERT_LENGTH - 1).trimEnd()}…`
+    : summary;
 }
+
+/** How many alert lines are worth showing, and how much text in total. */
+const MAX_ALERTS = 5;
+const MAX_ALERT_LENGTH = 200;
 
 /**
  * Decodes hrPrinterDetectedErrorState into the flags that are set.
