@@ -63,6 +63,14 @@ interface DeviceReport {
       receptacle: boolean;
     }>;
     trays: Array<{ name: string; media: string; percent: number | null }>;
+    /**
+     * What the device currently holds, next to what the printer just said.
+     *
+     * The page read the printer live and never showed the other half, so a
+     * capability stuck on an old value looked identical to a printer still
+     * reporting it. A user spent an evening on that distinction.
+     */
+    stored: { message: string | null; status: string | null };
     outputTray: string;
     covers: Array<{ description: string; open: boolean }>;
     /** What the printer itself says is wrong, in its own words. */
@@ -131,6 +139,12 @@ async function getDiagnostics({ homey }: Request): Promise<{
             media: t.media,
             percent: t.percent,
           })),
+          stored: {
+            message: device.hasCapability('printer_message')
+              ? (device.getCapabilityValue('printer_message') as string | null) : null,
+            status: device.hasCapability('printer_status')
+              ? (device.getCapabilityValue('printer_status') as string | null) : null,
+          },
           outputTray: classifyOutputTray(snapshot.outputTrays, snapshot.errors),
           covers: snapshot.covers.map((c) => ({ description: c.description, open: c.open })),
           alerts: snapshot.alerts

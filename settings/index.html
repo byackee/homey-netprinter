@@ -163,6 +163,18 @@
           }
           const openCovers = (r.covers || []).filter((c) => c.open).map((c) => c.description);
 
+          // The printer's live answer against what the device is holding. They
+          // should be identical; when they are not, the app has failed to write
+          // a value and that is worth shouting about rather than hiding.
+          const stored = r.stored || {};
+          const drift = [];
+          if (stored.message !== undefined && stored.message !== r.display) {
+            drift.push(Homey.__('settings.stored_message') + ': ' + (stored.message || '—'));
+          }
+          if (stored.status !== undefined && stored.status !== null && stored.status !== r.status) {
+            drift.push(Homey.__('settings.stored_status') + ': ' + stored.status);
+          }
+
           return '<div class="card">' + head +
             '<div class="sub">' + esc(bits.join(' · ')) + '</div>' +
             // The printer's own words come first: on a machine whose alarm has no
@@ -171,6 +183,7 @@
               ? '<div class="bad">' + esc(r.alerts.join(' · ')) + '</div>' : '') +
             (r.errors.length ? '<div class="bad">' + esc(r.errors.join(', ')) + '</div>' : '') +
             (openCovers.length ? '<div class="bad">' + esc(openCovers.join(', ')) + '</div>' : '') +
+            (drift.length ? '<div class="bad">' + esc(drift.join(' · ')) + '</div>' : '') +
             suppliesTable(r.supplies) +
             traysTable(r.trays) +
             '</div>';

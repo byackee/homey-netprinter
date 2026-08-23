@@ -47,6 +47,8 @@
     "tray_ok": "OK",
     "tray_near_full": "half full",
     "tray_full": "full",
-    "no_message": "no panel message"
+    "no_message": "no panel message",
+    "stored_message": "device still holds message",
+    "stored_status": "device still holds status"
   }
 }
