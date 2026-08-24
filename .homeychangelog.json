@@ -108,5 +108,10 @@
     "en": "The Flow condition \"a supply is below a level\" now works. It never has, in any version: it answered \"not below\" whatever the level, so any Flow built on it silently did nothing. Also fixes paper trays losing their history after a missed reading, and a printer that answers endlessly leaving its device stuck without ever polling again.",
     "fr": "La condition Flow « un consommable est en dessous d’un niveau » fonctionne enfin. Elle n’a jamais fonctionné, dans aucune version : elle répondait « pas en dessous » quel que soit le niveau, si bien que tout Flow bâti dessus ne faisait silencieusement rien. Corrige aussi les bacs à papier perdant leur historique après un relevé manqué, et une imprimante qui répond sans fin laissant son appareil bloqué sans plus jamais relever.",
     "nl": "De Flow-voorwaarde “een verbruiksartikel is onder een niveau” werkt nu. Dat deed hij nooit, in geen enkele versie: hij antwoordde “niet onder”, welk niveau je ook koos, dus elke Flow die erop gebouwd was deed stilzwijgend niets. Verhelpt ook papierladen die hun geschiedenis verloren na een gemiste meting, en een printer die eindeloos antwoordt waardoor het apparaat nooit meer uitleest."
+  },
+  "1.1.2": {
+    "en": "A printer that stops answering now dims its tile straight away, even on a device that was still marked unavailable — those first writes used to be dropped and only caught up one check later.",
+    "fr": "Une imprimante qui cesse de répondre grise sa tuile immédiatement, même sur un appareil encore marqué indisponible — ces premières écritures étaient perdues et ne rattrapaient qu’au relevé suivant.",
+    "nl": "Een printer die niet meer antwoordt maakt zijn tegel nu meteen grijs, ook op een apparaat dat nog als niet beschikbaar stond — die eerste schrijfacties gingen verloren en haalden dat pas een meting later in."
   }
 }
