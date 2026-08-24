@@ -2,8 +2,8 @@
   "type": "number",
   "title": {
     "en": "Light cyan",
-    "fr": "Light cyan",
-    "nl": "Light cyan"
+    "fr": "Cyan clair",
+    "nl": "Lichtcyaan"
   },
   "uiComponent": "sensor",
   "getable": true,

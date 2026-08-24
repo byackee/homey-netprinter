@@ -2,8 +2,8 @@
   "type": "boolean",
   "title": {
     "en": "Cover open",
-    "fr": "Cover open",
-    "nl": "Cover open"
+    "fr": "Capot ouvert",
+    "nl": "Klep open"
   },
   "uiComponent": "sensor",
   "getable": true,

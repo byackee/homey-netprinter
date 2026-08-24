@@ -3,7 +3,7 @@
   "title": {
     "en": "Orange",
     "fr": "Orange",
-    "nl": "Orange"
+    "nl": "Oranje"
   },
   "uiComponent": "sensor",
   "getable": true,

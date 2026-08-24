@@ -2,8 +2,8 @@
   "type": "boolean",
   "title": {
     "en": "Printer error",
-    "fr": "Printer error",
-    "nl": "Printer error"
+    "fr": "Erreur imprimante",
+    "nl": "Printerfout"
   },
   "uiComponent": "sensor",
   "getable": true,

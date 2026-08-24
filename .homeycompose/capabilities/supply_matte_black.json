@@ -2,8 +2,8 @@
   "type": "number",
   "title": {
     "en": "Matte black",
-    "fr": "Matte black",
-    "nl": "Matte black"
+    "fr": "Noir mat",
+    "nl": "Mat zwart"
   },
   "uiComponent": "sensor",
   "getable": true,

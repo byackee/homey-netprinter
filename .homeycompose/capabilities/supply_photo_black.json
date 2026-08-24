@@ -2,8 +2,8 @@
   "type": "number",
   "title": {
     "en": "Photo black",
-    "fr": "Photo black",
-    "nl": "Photo black"
+    "fr": "Noir photo",
+    "nl": "Fotozwart"
   },
   "uiComponent": "sensor",
   "getable": true,

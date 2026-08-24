@@ -2,8 +2,8 @@
   "type": "number",
   "title": {
     "en": "Tray 2",
-    "fr": "Tray 2",
-    "nl": "Tray 2"
+    "fr": "Bac 2",
+    "nl": "Lade 2"
   },
   "uiComponent": "sensor",
   "getable": true,

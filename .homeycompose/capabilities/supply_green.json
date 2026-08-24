@@ -2,8 +2,8 @@
   "type": "number",
   "title": {
     "en": "Green",
-    "fr": "Green",
-    "nl": "Green"
+    "fr": "Vert",
+    "nl": "Groen"
   },
   "uiComponent": "sensor",
   "getable": true,

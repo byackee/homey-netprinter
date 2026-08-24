@@ -404,18 +404,25 @@ describe('shortTitle', () => {
     // exists to bound the row, not to enforce a word count that would throw
     // away the most useful half of a real Epson title.
     assert.equal(shortTitle('Black Ink Cartridge 202/202XL'), 'Black Ink Cartridge 202/202XL');
+    // The longest of the five on that Epson, and the one that set the budget:
+    // at 32 the cap cut it to "Photo Black Ink Cartridge" and threw away the
+    // part number, which is the opposite of what the rule is for.
+    assert.equal(
+      shortTitle('Photo Black Ink Cartridge 202/202XL'),
+      'Photo Black Ink Cartridge 202/202XL',
+    );
   });
 
   it('keeps whole words rather than severing one', () => {
     const title = shortTitle('Lexmark C3326 Cyan Toner Cartridge High Yield');
-    assert.ok(title.length <= 32, `too long: ${title}`);
-    assert.equal(title, 'Lexmark C3326 Cyan Toner');
+    assert.ok(title.length <= 36, `too long: ${title}`);
+    assert.equal(title, 'Lexmark C3326 Cyan Toner Cartridge');
     assert.ok(!title.endsWith(' '), 'left a trailing space');
   });
 
   it('cuts a single overlong word, since there is no word boundary to use', () => {
-    const title = shortTitle('Photoconductorunitreplacementkitblack');
-    assert.ok(title.length <= 32, `too long: ${title}`);
+    const title = shortTitle('Photoconductorunitreplacementkitblackxl');
+    assert.ok(title.length <= 36, `too long: ${title}`);
     assert.ok(title.endsWith('\u2026'), 'a severed word should say so');
   });
 
@@ -427,6 +434,6 @@ describe('shortTitle', () => {
     const plan = planCapabilities(snapshot({
       supplies: [supply('cyan', 50, 'Lexmark C3326 Cyan Toner Cartridge High Yield')],
     }), 15);
-    assert.equal(plan.titles.get('measure_supply.cyan'), 'Lexmark C3326 Cyan Toner');
+    assert.equal(plan.titles.get('measure_supply.cyan'), 'Lexmark C3326 Cyan Toner Cartridge');
   });
 });

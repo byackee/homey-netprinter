@@ -2,8 +2,8 @@
   "type": "number",
   "title": {
     "en": "Waste tank",
-    "fr": "Waste tank",
-    "nl": "Waste tank"
+    "fr": "Réservoir d’encre usée",
+    "nl": "Afvalreservoir"
   },
   "uiComponent": "sensor",
   "getable": true,

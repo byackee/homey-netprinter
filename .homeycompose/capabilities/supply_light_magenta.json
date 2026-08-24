@@ -2,8 +2,8 @@
   "type": "number",
   "title": {
     "en": "Light magenta",
-    "fr": "Light magenta",
-    "nl": "Light magenta"
+    "fr": "Magenta clair",
+    "nl": "Lichtmagenta"
   },
   "uiComponent": "sensor",
   "getable": true,

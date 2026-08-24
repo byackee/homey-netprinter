@@ -2,8 +2,8 @@
   "type": "number",
   "title": {
     "en": "Supply 5",
-    "fr": "Supply 5",
-    "nl": "Supply 5"
+    "fr": "Consommable 5",
+    "nl": "Verbruiksartikel 5"
   },
   "uiComponent": "sensor",
   "getable": true,

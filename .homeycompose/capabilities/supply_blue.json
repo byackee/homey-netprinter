@@ -2,8 +2,8 @@
   "type": "number",
   "title": {
     "en": "Blue",
-    "fr": "Blue",
-    "nl": "Blue"
+    "fr": "Bleu",
+    "nl": "Blauw"
   },
   "uiComponent": "sensor",
   "getable": true,

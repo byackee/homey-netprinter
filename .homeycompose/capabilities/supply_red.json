@@ -2,8 +2,8 @@
   "type": "number",
   "title": {
     "en": "Red",
-    "fr": "Red",
-    "nl": "Red"
+    "fr": "Rouge",
+    "nl": "Rood"
   },
   "uiComponent": "sensor",
   "getable": true,

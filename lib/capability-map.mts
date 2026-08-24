@@ -19,10 +19,15 @@ import { colourName, partName, trayName, type Translated } from './supply-titles
  * Counting characters serves that better here, because the four-word
  * "Black Ink Cartridge 202/202XL" an Epson answers with ends in the part
  * number the user has to go and order, which is the whole reason we prefer the
- * printer's wording to the colour we inferred. Thirty-two characters keeps that
- * one whole and still bounds a Lexmark that adds its model and yield class.
+ * printer's wording to the colour we inferred.
+ *
+ * Thirty-six because that is what the evidence asked for. Thirty-two was set
+ * against "Black Ink Cartridge 202/202XL" and held it whole — but the same
+ * printer's "Photo Black Ink Cartridge 202/202XL" is thirty-five, and the cap
+ * cut off exactly the part number the rule exists to keep. Still bounds a
+ * Lexmark that adds its model and yield class on top.
  */
-const MAX_TITLE_LENGTH = 32;
+const MAX_TITLE_LENGTH = 36;
 
 /**
  * Trims a printer's wording to something that fits a capability row.

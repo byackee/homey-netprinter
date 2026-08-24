@@ -3,7 +3,7 @@
   "title": {
     "en": "Pages printed",
     "fr": "Pages imprimées",
-    "nl": "Pagina’s afgedrukt"
+    "nl": "Afgedrukte pagina's"
   },
   "uiComponent": "sensor",
   "getable": true,

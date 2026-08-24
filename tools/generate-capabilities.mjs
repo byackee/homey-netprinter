@@ -180,30 +180,32 @@ console.log(`wrote ${Object.keys(LEVELS).length + 1} level capabilities and ${Ob
  * entries only, and a device that has migrated never sees them again.
  */
 const RETIRED = [
-  ['supply_black', 'Black', 'supply_ink'],
-  ['supply_photo_black', 'Photo black', 'supply_ink'],
-  ['supply_matte_black', 'Matte black', 'supply_ink'],
-  ['supply_grey', 'Grey', 'supply_ink'],
-  ['supply_cyan', 'Cyan', 'supply_ink'],
-  ['supply_magenta', 'Magenta', 'supply_ink'],
-  ['supply_yellow', 'Yellow', 'supply_ink'],
-  ['supply_light_cyan', 'Light cyan', 'supply_ink'],
-  ['supply_light_magenta', 'Light magenta', 'supply_ink'],
-  ['supply_red', 'Red', 'supply_ink'],
-  ['supply_green', 'Green', 'supply_ink'],
-  ['supply_blue', 'Blue', 'supply_ink'],
-  ['supply_orange', 'Orange', 'supply_ink'],
-  ['supply_waste', 'Waste tank', 'supply_waste'],
-  ...Array.from({ length: 8 }, (_, i) => [`supply_other_${i + 1}`, `Supply ${i + 1}`, 'supply_cartridge']),
-  ...Array.from({ length: 4 }, (_, i) => [`printer_tray_${i + 1}`, `Tray ${i + 1}`, 'printer_tray']),
+  ['supply_black', { en: 'Black', fr: 'Noir', nl: 'Zwart' }, 'supply_ink'],
+  ['supply_photo_black', { en: 'Photo black', fr: 'Noir photo', nl: 'Fotozwart' }, 'supply_ink'],
+  ['supply_matte_black', { en: 'Matte black', fr: 'Noir mat', nl: 'Mat zwart' }, 'supply_ink'],
+  ['supply_grey', { en: 'Grey', fr: 'Gris', nl: 'Grijs' }, 'supply_ink'],
+  ['supply_cyan', { en: 'Cyan', fr: 'Cyan', nl: 'Cyaan' }, 'supply_ink'],
+  ['supply_magenta', { en: 'Magenta', fr: 'Magenta', nl: 'Magenta' }, 'supply_ink'],
+  ['supply_yellow', { en: 'Yellow', fr: 'Jaune', nl: 'Geel' }, 'supply_ink'],
+  ['supply_light_cyan', { en: 'Light cyan', fr: 'Cyan clair', nl: 'Lichtcyaan' }, 'supply_ink'],
+  ['supply_light_magenta', { en: 'Light magenta', fr: 'Magenta clair', nl: 'Lichtmagenta' }, 'supply_ink'],
+  ['supply_red', { en: 'Red', fr: 'Rouge', nl: 'Rood' }, 'supply_ink'],
+  ['supply_green', { en: 'Green', fr: 'Vert', nl: 'Groen' }, 'supply_ink'],
+  ['supply_blue', { en: 'Blue', fr: 'Bleu', nl: 'Blauw' }, 'supply_ink'],
+  ['supply_orange', { en: 'Orange', fr: 'Orange', nl: 'Oranje' }, 'supply_ink'],
+  ['supply_waste', { en: 'Waste tank', fr: 'Réservoir d\u2019encre usée', nl: 'Afvalreservoir' }, 'supply_waste'],
+  ...Array.from({ length: 8 }, (_, i) => [`supply_other_${i + 1}`,
+    { en: `Supply ${i + 1}`, fr: `Consommable ${i + 1}`, nl: `Verbruiksartikel ${i + 1}` }, 'supply_cartridge']),
+  ...Array.from({ length: 4 }, (_, i) => [`printer_tray_${i + 1}`,
+    { en: `Tray ${i + 1}`, fr: `Bac ${i + 1}`, nl: `Lade ${i + 1}` }, 'printer_tray']),
 ];
 
-for (const [id, en, icon] of RETIRED) {
+for (const [id, title, icon] of RETIRED) {
   writeFileSync(
     join(capDir, `${id}.json`),
     `${JSON.stringify({
       type: 'number',
-      title: { en, fr: en, nl: en },
+      title,
       uiComponent: 'sensor',
       getable: true,
       setable: false,
@@ -219,15 +221,18 @@ for (const [id, en, icon] of RETIRED) {
 
 /** The page counter and two alarms, retired the same way and for the same reason. */
 writeFileSync(join(capDir, 'printer_pages.json'), `${JSON.stringify({
-  type: 'number', title: { en: 'Pages printed', fr: 'Pages imprimées', nl: 'Pagina\u2019s afgedrukt' },
+  type: 'number', title: { en: 'Pages printed', fr: 'Pages imprimées', nl: "Afgedrukte pagina's" },
   uiComponent: 'sensor', getable: true, setable: false, insights: true,
   units: { en: 'pages', fr: 'pages', nl: "pagina's" }, min: 0, decimals: 0,
   icon: '/assets/capability/printer_pages.svg',
 }, null, 2)}\n`);
 
-for (const [id, en] of [['alarm_printer_error', 'Printer error'], ['alarm_cover_open', 'Cover open']]) {
+for (const [id, title] of [
+  ['alarm_printer_error', { en: 'Printer error', fr: 'Erreur imprimante', nl: 'Printerfout' }],
+  ['alarm_cover_open', { en: 'Cover open', fr: 'Capot ouvert', nl: 'Klep open' }],
+]) {
   writeFileSync(join(capDir, `${id}.json`), `${JSON.stringify({
-    type: 'boolean', title: { en, fr: en, nl: en },
+    type: 'boolean', title,
     uiComponent: 'sensor', getable: true, setable: false, insights: true,
     icon: '/assets/capability/alarm_supply_low.svg',
   }, null, 2)}\n`);

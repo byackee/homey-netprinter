@@ -2,8 +2,8 @@
   "type": "number",
   "title": {
     "en": "Grey",
-    "fr": "Grey",
-    "nl": "Grey"
+    "fr": "Gris",
+    "nl": "Grijs"
   },
   "uiComponent": "sensor",
   "getable": true,
