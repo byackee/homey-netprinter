@@ -90,12 +90,34 @@ describe('resolving an id a Flow is still holding', () => {
     assert.equal(resolveCapability('nonsense', has(['measure_supply.black'])), null);
   });
 
-  it('maps every named colour it ever shipped', () => {
-    for (const [old, now] of RENAMED) {
-      assert.ok(now.length > 0, `${old} maps to nothing`);
-      assert.notEqual(old, now);
-    }
-    assert.equal(RENAMED.size, 13 + 4 + 1 + 2);
+  it('maps every id it ever shipped to the right one, entry for entry', () => {
+    // Asserted as a literal table, not walked. Walking it and checking each
+    // value is non-empty and different passes just as happily when every colour
+    // maps to magenta — and that is not a hypothetical: a Flow saved as "Cyan
+    // below 10 %" would then read the magenta cartridge and fire on the wrong
+    // consumable, with nothing anywhere to say so. The table IS the behaviour.
+    assert.deepEqual(Object.fromEntries(RENAMED), {
+      supply_black: 'measure_supply.black',
+      supply_photo_black: 'measure_supply.photo_black',
+      supply_matte_black: 'measure_supply.matte_black',
+      supply_grey: 'measure_supply.grey',
+      supply_cyan: 'measure_supply.cyan',
+      supply_magenta: 'measure_supply.magenta',
+      supply_yellow: 'measure_supply.yellow',
+      supply_light_cyan: 'measure_supply.light_cyan',
+      supply_light_magenta: 'measure_supply.light_magenta',
+      supply_red: 'measure_supply.red',
+      supply_green: 'measure_supply.green',
+      supply_blue: 'measure_supply.blue',
+      supply_orange: 'measure_supply.orange',
+      printer_tray_1: 'measure_tray.1',
+      printer_tray_2: 'measure_tray.2',
+      printer_tray_3: 'measure_tray.3',
+      printer_tray_4: 'measure_tray.4',
+      printer_pages: 'meter_pages',
+      alarm_printer_error: 'alarm_problem',
+      alarm_cover_open: 'alarm_open',
+    });
   });
 });
 

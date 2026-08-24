@@ -79,8 +79,24 @@ export default class PrinterDriver extends Homey.Driver {
 
     this.homey.flow
       .getConditionCard('supply_below')
-      .registerRunListener(async (args: { device: PrinterDevice; capability: string; level: number }) => {
-        const value = args.device.supplyLevel(args.capability);
+      .registerRunListener(async (args: {
+        device: PrinterDevice;
+        // An `autocomplete` argument hands back the whole object the picker
+        // offered, not its id: "the returned value when the card is run is one
+        // of the objects provided in the autocomplete array". This was typed as
+        // a string and passed straight to a lookup that takes a capability id,
+        // so it matched nothing and the card answered "not below" every time it
+        // ran — in every release since the first. `registerRunListener` types
+        // its args as `any`, so the annotation was an assertion the compiler
+        // could never check. A string is still accepted in case Homey ever
+        // hands one back for a Flow saved another way.
+        capability: string | { id?: string } | null;
+        level: number;
+      }) => {
+        const id = typeof args.capability === 'string' ? args.capability : args.capability?.id;
+        if (typeof id !== 'string' || id.length === 0) return false;
+
+        const value = args.device.supplyLevel(id);
         // An unknown level is not "below": a printer that will not report must
         // not silently satisfy a condition the user wrote to catch a low tank.
         if (value === null) return false;

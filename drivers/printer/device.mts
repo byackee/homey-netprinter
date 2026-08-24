@@ -7,7 +7,11 @@ import {
   legacyAssignments,
   resolveCapability,
 } from '../../lib/legacy-capabilities.mjs';
-import { assignSupplyCapabilities, isSupplyCapability } from '../../lib/supply-capabilities.mjs';
+import {
+  TRAY_CAPABILITY,
+  assignSupplyCapabilities,
+  isSupplyCapability,
+} from '../../lib/supply-capabilities.mjs';
 import { PrinterReader, type PrinterSnapshot } from '../../lib/printer-reader.mjs';
 import { SnmpUnreachableError, type SnmpVersion } from '../../lib/snmp-client.mjs';
 
@@ -242,7 +246,10 @@ export default class PrinterDevice extends Homey.Device {
 
     // An empty supplies table means the walk returned nothing, which is a failed
     // read rather than a printer with no cartridges. Every printer has at least one.
-    await this.syncCapabilities(plan.capabilities, snapshot.supplies.length > 0);
+    await this.syncCapabilities(plan.capabilities, {
+      supplies: snapshot.supplies.length > 0,
+      trays: snapshot.inputTrays.length > 0,
+    });
 
     await this.reportLowSupplies(plan.lowSupplies);
 
@@ -295,27 +302,63 @@ export default class PrinterDevice extends Homey.Device {
     // permanently. The renames a name determines need none of that, which is
     // why they are not behind this guard: a printer that reports no supplies at
     // all must still have its alarms migrated.
-    if (snapshot.supplies.length > 0) {
+    const before = legacyAssignments(snapshot.supplies);
+    const after = assignSupplyCapabilities(snapshot.supplies);
+
+    // The replay is only trustworthy if it reproduces what this device actually
+    // holds.
+    //
+    // `legacyAssignments` is run over the snapshot we have *now*, but the ids
+    // being replaced were handed out against a snapshot from whenever the device
+    // last polled before the update — possibly months ago. A slot number was a
+    // position among the colourless supplies, so a printer that has since begun
+    // reporting one more of them, ahead of an existing one, replays to a
+    // different pairing than it originally got. Recording that would point a
+    // user's "toner below 20 %" Flow at the fuser, quietly, and read a real
+    // number off the wrong part — which is worse than reading nothing, because
+    // nothing at least stops the Flow firing instead of firing on a lie.
+    //
+    // So the replay has to agree with the device before it is believed.
+    const replayed = new Set(before.filter((id): id is string => id !== null));
+    const held = new Set(legacy.filter((id) => !RENAMED.has(id)));
+    const trustworthy = replayed.size === held.size && [...held].every((id) => replayed.has(id));
+
+    let recorded = false;
+
+    if (snapshot.supplies.length > 0 && trustworthy) {
       const renamed: Record<string, string> = {
         ...(this.getStoreValue('renamedCapabilities') as Record<string, string> | undefined ?? {}),
       };
 
-      const before = legacyAssignments(snapshot.supplies);
-      const after = assignSupplyCapabilities(snapshot.supplies);
       before.forEach((old, i) => {
         const now = after[i]?.capability;
-        if (old !== null && now !== undefined) renamed[old] = now;
+        if (old !== null && now !== undefined && held.has(old)) renamed[old] = now;
       });
 
-      await this.setStoreValue('renamedCapabilities', renamed).catch((e: Error) =>
-        this.error(`Could not record the renamed capabilities: ${e.message}`));
+      recorded = await this.setStoreValue('renamedCapabilities', renamed)
+        .then(() => true)
+        .catch((e: Error) => {
+          this.noteCapabilityError('record the renamed capabilities', e);
+          return false;
+        });
+    } else if (snapshot.supplies.length > 0) {
+      this.log(
+        `Not recording a rename map: the printer's supplies no longer replay to `
+        + `what this device holds (${[...held].join(', ')}). Flows naming those `
+        + `will stop resolving rather than resolve to the wrong consumable.`,
+      );
     }
 
-    // Anything whose replacement is still unknown stays put for now, rather
-    // than being removed against a map that could not be built.
-    const removable = snapshot.supplies.length > 0
-      ? legacy
-      : legacy.filter((c) => RENAMED.has(c));
+    // A row is only removed once its replacement is written down somewhere.
+    //
+    // The renames a name determines need no map, so they always go. The supply
+    // rows go only if the map that replaces them actually reached the store: if
+    // that write failed and they were removed anyway, `legacy` would be empty
+    // on every later poll, this method would return at the top, and the pairing
+    // could never be rebuilt — nothing else in the app holds it. A Flow naming
+    // a waste bottle would resolve to null for ever, and the condition card
+    // reads null as "not below", so it would go silent rather than fail.
+    const removable = recorded ? legacy : legacy.filter((c) => RENAMED.has(c));
 
     this.log(`Migrating ${removable.length} capability/ies: ${removable.join(', ')}`);
 
@@ -363,16 +406,33 @@ export default class PrinterDevice extends Homey.Device {
    * successfully, and never the scalar rows, whose absence only ever means the
    * printer stayed silent about them this time.
    */
-  private async syncCapabilities(wanted: string[], suppliesWereRead: boolean): Promise<void> {
+  private async syncCapabilities(
+    wanted: string[],
+    conclusive: { supplies: boolean; trays: boolean },
+  ): Promise<void> {
     const current = this.getCapabilities();
 
-    if (suppliesWereRead) {
-      const stale = current.filter((c) =>
-        isSupplyCapability(c) && !wanted.includes(c));
-      for (const capability of stale) {
-        await this.removeCapability(capability).catch((e: Error) =>
-          this.noteCapabilityError(`remove ${capability}`, e));
-      }
+    // Each kind of row is removed only on the strength of the read it came
+    // from. They used to share one flag, the supplies one, and that was wrong
+    // in a way that destroyed data: `readInputTrays` swallows its own failure
+    // and returns an empty list, so a single dropped UDP response on the tray
+    // walk — a printer busy with a job is enough — produced a snapshot with
+    // real supplies and no trays. The supplies flag was true, every
+    // `measure_tray.*` row counted as stale, and all of them were removed,
+    // taking their Insights history with them for good. The next poll added
+    // them back with empty graphs, so it looked like nothing had happened.
+    const removable = (c: string) => {
+      if (!isSupplyCapability(c) || wanted.includes(c)) return false;
+      return c.startsWith(`${TRAY_CAPABILITY}.`) ? conclusive.trays : conclusive.supplies;
+    };
+
+    for (const capability of current.filter(removable)) {
+      await this.removeCapability(capability).catch((e: Error) =>
+        this.noteCapabilityError(`remove ${capability}`, e));
+      // A removed row must forget its stored title, or a later re-add keeps the
+      // cached key, skips the write, and shows the capability's bare default —
+      // two trays both reading "Tray", indistinguishable in the Flow picker.
+      this.appliedTitles.delete(capability);
     }
 
     for (const capability of wanted) {

@@ -253,7 +253,7 @@ describe('planCapabilities', () => {
 
   it('omits the page counter and panel message when the printer has neither', () => {
     const plan = planCapabilities(snapshot({ pageCount: null, displayText: null }), 15);
-    assert.ok(!plan.capabilities.includes('printer_pages'));
+    assert.ok(!plan.capabilities.includes('meter_pages'));
     assert.ok(!plan.capabilities.includes('printer_message'));
   });
 
