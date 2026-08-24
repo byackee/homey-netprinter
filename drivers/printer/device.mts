@@ -229,11 +229,17 @@ export default class PrinterDevice extends Homey.Device {
       ? error.message
       : `Poll failed: ${(error as Error).message}`;
 
+    const { offlineAfter } = this.readSettings();
+
+    // Before the writes, not after. Homey blocks capability values on a device
+    // it considers unavailable, so a device still carrying that flag would have
+    // dropped the very writes meant to dim its tile, and only caught up a poll
+    // later. Pointed out by smarthomesven on the community forum.
+    if (offlineAfter === 0) await this.clearUnavailable();
+
     await this.safeSet('onoff', false);
     await this.safeSet('printer_status', 'offline');
     await this.triggerStatusChange('offline');
-
-    const { offlineAfter } = this.readSettings();
 
     // Zero means never mark it unavailable.
     //
@@ -244,12 +250,12 @@ export default class PrinterDevice extends Homey.Device {
     // available as homey insists on a repair". The status capability still says
     // `offline` on the first missed check either way, so Flows lose nothing.
     if (offlineAfter === 0) {
-      // Clearing, not just abstaining. The flag survives an app restart, and
-      // only a successful read ever lifted it — so a device flagged before the
-      // setting was turned off stayed flagged, showing a repair screen the
-      // setting promised to prevent, with no way out but the printer coming
-      // back on. "Never mark it unavailable" has to mean it is not marked now.
-      await this.clearUnavailable();
+      // The flag was cleared above rather than merely not set: it survives an
+      // app restart and only a successful read ever lifted it, so a device
+      // flagged before the setting was turned off stayed flagged, showing a
+      // repair screen the setting promised to prevent, with no way out but the
+      // printer coming back on. "Never mark it unavailable" has to mean it is
+      // not marked now.
       this.log(`${message} (not marking unavailable: offline_after is 0)`);
       return;
     }
