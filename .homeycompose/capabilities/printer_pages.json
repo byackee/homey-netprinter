@@ -1,0 +1,20 @@
+{
+  "type": "number",
+  "title": {
+    "en": "Pages printed",
+    "fr": "Pages imprimées",
+    "nl": "Pagina’s afgedrukt"
+  },
+  "uiComponent": "sensor",
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "units": {
+    "en": "pages",
+    "fr": "pages",
+    "nl": "pagina's"
+  },
+  "min": 0,
+  "decimals": 0,
+  "icon": "/assets/capability/printer_pages.svg"
+}

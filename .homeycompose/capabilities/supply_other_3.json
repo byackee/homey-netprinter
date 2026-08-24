@@ -1,0 +1,21 @@
+{
+  "type": "number",
+  "title": {
+    "en": "Supply 3",
+    "fr": "Supply 3",
+    "nl": "Supply 3"
+  },
+  "uiComponent": "sensor",
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "units": {
+    "en": "%",
+    "fr": " %",
+    "nl": "%"
+  },
+  "min": 0,
+  "max": 100,
+  "decimals": 0,
+  "icon": "/assets/capability/supply_cartridge.svg"
+}

@@ -1,0 +1,13 @@
+{
+  "type": "boolean",
+  "title": {
+    "en": "Cover open",
+    "fr": "Cover open",
+    "nl": "Cover open"
+  },
+  "uiComponent": "sensor",
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "icon": "/assets/capability/alarm_supply_low.svg"
+}

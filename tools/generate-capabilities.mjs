@@ -163,3 +163,74 @@ writeFileSync(
 );
 
 console.log(`wrote ${Object.keys(LEVELS).length + 1} level capabilities and ${Object.keys(ICON_FILES).length} icons`);
+
+/**
+ * The capability definitions 1.1.0 moved away from, kept alive on purpose.
+ *
+ * They cannot be deleted in the same release that removes them from devices.
+ * Homey re-validates a device's whole capability set on every `addCapability`
+ * and `removeCapability`, so while a device still holds `supply_black` and the
+ * manifest no longer defines it, *every* capability write on that device is
+ * refused — including the one that would have removed it. The migration
+ * deadlocks against itself, silently, and the device keeps the old rows for
+ * ever. That is exactly what happened on a real Homey before this came back.
+ *
+ * So they stay defined until no device can still be holding them, and are
+ * deleted in a later release. Nothing writes to them: they are manifest
+ * entries only, and a device that has migrated never sees them again.
+ */
+const RETIRED = [
+  ['supply_black', 'Black', 'supply_ink'],
+  ['supply_photo_black', 'Photo black', 'supply_ink'],
+  ['supply_matte_black', 'Matte black', 'supply_ink'],
+  ['supply_grey', 'Grey', 'supply_ink'],
+  ['supply_cyan', 'Cyan', 'supply_ink'],
+  ['supply_magenta', 'Magenta', 'supply_ink'],
+  ['supply_yellow', 'Yellow', 'supply_ink'],
+  ['supply_light_cyan', 'Light cyan', 'supply_ink'],
+  ['supply_light_magenta', 'Light magenta', 'supply_ink'],
+  ['supply_red', 'Red', 'supply_ink'],
+  ['supply_green', 'Green', 'supply_ink'],
+  ['supply_blue', 'Blue', 'supply_ink'],
+  ['supply_orange', 'Orange', 'supply_ink'],
+  ['supply_waste', 'Waste tank', 'supply_waste'],
+  ...Array.from({ length: 8 }, (_, i) => [`supply_other_${i + 1}`, `Supply ${i + 1}`, 'supply_cartridge']),
+  ...Array.from({ length: 4 }, (_, i) => [`printer_tray_${i + 1}`, `Tray ${i + 1}`, 'printer_tray']),
+];
+
+for (const [id, en, icon] of RETIRED) {
+  writeFileSync(
+    join(capDir, `${id}.json`),
+    `${JSON.stringify({
+      type: 'number',
+      title: { en, fr: en, nl: en },
+      uiComponent: 'sensor',
+      getable: true,
+      setable: false,
+      insights: true,
+      units: { en: '%', fr: ' %', nl: '%' },
+      min: 0,
+      max: 100,
+      decimals: 0,
+      icon: `/assets/capability/${icon}.svg`,
+    }, null, 2)}\n`,
+  );
+}
+
+/** The page counter and two alarms, retired the same way and for the same reason. */
+writeFileSync(join(capDir, 'printer_pages.json'), `${JSON.stringify({
+  type: 'number', title: { en: 'Pages printed', fr: 'Pages imprimées', nl: 'Pagina\u2019s afgedrukt' },
+  uiComponent: 'sensor', getable: true, setable: false, insights: true,
+  units: { en: 'pages', fr: 'pages', nl: "pagina's" }, min: 0, decimals: 0,
+  icon: '/assets/capability/printer_pages.svg',
+}, null, 2)}\n`);
+
+for (const [id, en] of [['alarm_printer_error', 'Printer error'], ['alarm_cover_open', 'Cover open']]) {
+  writeFileSync(join(capDir, `${id}.json`), `${JSON.stringify({
+    type: 'boolean', title: { en, fr: en, nl: en },
+    uiComponent: 'sensor', getable: true, setable: false, insights: true,
+    icon: '/assets/capability/alarm_supply_low.svg',
+  }, null, 2)}\n`);
+}
+
+console.log(`kept ${RETIRED.length + 3} retired definitions alive for migration`);

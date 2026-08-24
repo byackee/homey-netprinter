@@ -1,0 +1,13 @@
+{
+  "type": "boolean",
+  "title": {
+    "en": "Printer error",
+    "fr": "Printer error",
+    "nl": "Printer error"
+  },
+  "uiComponent": "sensor",
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "icon": "/assets/capability/alarm_supply_low.svg"
+}

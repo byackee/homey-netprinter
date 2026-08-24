@@ -10,6 +10,7 @@
 import type Homey from 'homey';
 
 import type NetworkPrinterApp from './app.mjs';
+import type PrinterDevice from './drivers/printer/device.mjs';
 
 import { PrinterReader } from './lib/printer-reader.mjs';
 import { INPUT_SHEETS_REMAINING, classifyOutputTray } from './lib/printer-mib.mjs';
@@ -78,6 +79,17 @@ interface DeviceReport {
      * reporting it. A user spent an evening on that distinction.
      */
     stored: { message: string | null; status: string | null };
+    /**
+     * The capability ids this device actually carries.
+     *
+     * The one thing the page could never show, and the thing that made a
+     * migration impossible to diagnose from outside: a device holding the ids
+     * of a previous release looks identical, from the printer's side, to one
+     * that migrated cleanly.
+     */
+    capabilities: string[];
+    /** When the device itself last polled, and how that went. */
+    lastPoll: { at: string; outcome: string; capabilityErrors: string[] } | null;
     outputTray: string;
     covers: Array<{ description: string; open: boolean }>;
     /** What the printer itself says is wrong, in its own words. */
@@ -93,6 +105,7 @@ interface DeviceReport {
  */
 async function getDiagnostics({ homey }: Request): Promise<{
   subnet: string | null;
+  driverCapabilities: string[] | null;
   devices: DeviceReport[];
 }> {
   const driver = homey.drivers.getDriver('printer');
@@ -156,6 +169,8 @@ async function getDiagnostics({ homey }: Request): Promise<{
             status: device.hasCapability('printer_status')
               ? (device.getCapabilityValue('printer_status') as string | null) : null,
           },
+          capabilities: device.getCapabilities(),
+          lastPoll: (device as PrinterDevice).pollReport(),
           outputTray: classifyOutputTray(snapshot.outputTrays, snapshot.errors),
           covers: snapshot.covers.map((c) => ({ description: c.description, open: c.open })),
           alerts: snapshot.alerts
@@ -168,7 +183,12 @@ async function getDiagnostics({ homey }: Request): Promise<{
     }
   }));
 
-  return { subnet, devices: reports };
+  // What the driver says it declares, which is what an existing device is
+  // brought up to on init. Reported because a silent mismatch here is
+  // invisible from every other angle: a device simply never gains the row.
+  const declared = (driver.manifest as { capabilities?: string[] } | undefined)?.capabilities ?? null;
+
+  return { subnet, driverCapabilities: declared, devices: reports };
 }
 
 /** One sweep result as the settings page consumes it. */

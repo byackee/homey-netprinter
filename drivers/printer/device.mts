@@ -67,6 +67,23 @@ export default class PrinterDevice extends Homey.Device {
    * whose bottle read 100 %.
    */
   private lastWarning: string | null | undefined = undefined;
+  /**
+   * What the last poll did, for the settings page.
+   *
+   * A device that silently stops polling is indistinguishable from one whose
+   * printer simply has not changed, and both look identical to a page that only
+   * ever reads the printer live. This is the missing half.
+   */
+  private lastPoll: { at: string; outcome: string } | null = null;
+  /**
+   * Capability writes that failed on the last poll.
+   *
+   * These are caught so one bad row cannot abort a whole poll, which is right —
+   * but caught and logged means invisible, because a devkit install has no
+   * readable log. A migration that fails every single add looks exactly like a
+   * migration that never ran.
+   */
+  private capabilityErrors: string[] = [];
 
   override async onInit(): Promise<void> {
     this.buildReader();
@@ -151,7 +168,9 @@ export default class PrinterDevice extends Homey.Device {
       this.consecutiveFailures = 0;
       if (!this.getAvailable()) await this.setAvailable();
       await this.applySnapshot(snapshot);
+      this.lastPoll = { at: new Date().toISOString(), outcome: 'ok' };
     } catch (error) {
+      this.lastPoll = { at: new Date().toISOString(), outcome: `failed: ${(error as Error).message}` };
       await this.handleFailure(error);
     } finally {
       this.polling = false;
@@ -214,6 +233,7 @@ export default class PrinterDevice extends Homey.Device {
 
   /** Writes a snapshot to capabilities, adding or removing rows as the printer's supplies change. */
   private async applySnapshot(snapshot: PrinterSnapshot): Promise<void> {
+    this.capabilityErrors = [];
     const plan = planCapabilities(snapshot, this.readSettings().lowThreshold);
 
     // Before anything is written, because migration decides what the old rows
@@ -301,7 +321,7 @@ export default class PrinterDevice extends Homey.Device {
 
     for (const capability of removable) {
       await this.removeCapability(capability).catch((e: Error) =>
-        this.error(`Could not remove ${capability}: ${e.message}`));
+        this.noteCapabilityError(`remove ${capability}`, e));
       this.appliedTitles.delete(capability);
     }
   }
@@ -351,16 +371,22 @@ export default class PrinterDevice extends Homey.Device {
         isSupplyCapability(c) && !wanted.includes(c));
       for (const capability of stale) {
         await this.removeCapability(capability).catch((e: Error) =>
-          this.error(`Could not remove ${capability}: ${e.message}`));
+          this.noteCapabilityError(`remove ${capability}`, e));
       }
     }
 
     for (const capability of wanted) {
       if (!current.includes(capability)) {
         await this.addCapability(capability).catch((e: Error) =>
-          this.error(`Could not add ${capability}: ${e.message}`));
+          this.noteCapabilityError(`add ${capability}`, e));
       }
     }
+  }
+
+  /** Records a failed capability write so the settings page can show it. */
+  private noteCapabilityError(what: string, error: Error): void {
+    this.error(`Could not ${what}: ${error.message}`);
+    if (this.capabilityErrors.length < 8) this.capabilityErrors.push(`${what}: ${error.message}`);
   }
 
   /** Sets a capability without letting one bad value abort the rest of the poll. */
@@ -496,6 +522,12 @@ export default class PrinterDevice extends Homey.Device {
     this.buildReader();
     this.consecutiveFailures = 0;
     await this.poll();
+  }
+
+  /** What the last poll did and when, for the settings page. */
+  pollReport(): { at: string; outcome: string; capabilityErrors: string[] } | null {
+    if (this.lastPoll === null) return null;
+    return { ...this.lastPoll, capabilityErrors: [...this.capabilityErrors] };
   }
 
   /** Reads the printer now, outside the poll schedule. Backs the "refresh" Flow action. */
