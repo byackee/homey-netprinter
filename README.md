@@ -119,6 +119,16 @@ npx tsc -p tsconfig.tools.json && node .toolsbuild/tools/probe.mjs 192.168.1.50 
   icon; a waste bottle showing the black cartridge's ink drop loses what the icon is
   for. The `measure_` prefix is what lets a user pick a level as the indicator beside
   the device icon — Homey offers only `measure_`- and `meter_`-prefixed ids there.
+- **Homey revalidates a device's *entire* capability set on every `addCapability`
+  and `removeCapability`.** So a capability definition cannot be deleted from the
+  manifest in the same release that removes it from devices: the device still holds
+  an id the app no longer defines, and every capability write on it is then refused
+  — including the one that would have removed it. The migration deadlocks against
+  itself, silently, and the device keeps the old rows for ever. The error names a
+  *different* capability than the one being written, which is the only clue:
+  `remove alarm_printer_error: Invalid Capability: supply_photo_black`. Retire a
+  definition in one release, delete it in a later one, once no device can still
+  hold it. `tools/generate-capabilities.mjs` keeps the retired ones alive.
 - **A sub-capability's id is a permanent Insights key, so it must not renumber.**
   `Supply.index` is the printer's own table index, not a position in our list, because
   a position shifts the day a printer starts reporting one more consumable and would

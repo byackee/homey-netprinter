@@ -12,6 +12,10 @@
   .card .title { font-weight: 600; }
   .card .sub { color: var(--homey-text-color-light); font-size: .88rem; }
   .bad { color: var(--homey-color-red, #da3633); }
+  /* The device's own bookkeeping, below the printer's answer: useful when
+     something is wrong, never the thing you read first. */
+  .faint { color: var(--homey-text-color-light); font-size: .78rem; margin-top: .35rem;
+           word-break: break-word; opacity: .75; }
   .ok { color: var(--homey-color-green, #2ea043); }
   table { width: 100%; border-collapse: collapse; margin-top: .6rem; font-size: .92rem; }
   td { padding: .22rem 0; }
@@ -175,6 +179,12 @@
           // The printer's live answer against what the device is holding. They
           // should be identical; when they are not, the app has failed to write
           // a value and that is worth shouting about rather than hiding.
+          const poll = r.lastPoll;
+          const capabilityErrors = (poll && poll.capabilityErrors) || [];
+          const pollLine = poll
+            ? Homey.__('settings.last_poll') + ': ' + new Date(poll.at).toLocaleString() + ' · ' + poll.outcome
+            : Homey.__('settings.never_polled');
+
           const stored = r.stored || {};
           const drift = [];
           if (stored.message !== undefined && stored.message !== r.display) {
@@ -193,8 +203,19 @@
             (r.errors.length ? '<div class="bad">' + esc(r.errors.join(', ')) + '</div>' : '') +
             (openCovers.length ? '<div class="bad">' + esc(openCovers.join(', ')) + '</div>' : '') +
             (drift.length ? '<div class="bad">' + esc(drift.join(' · ')) + '</div>' : '') +
+            // A capability write that failed is caught so one bad row cannot
+            // abort a poll. Caught and logged is invisible here, though, and a
+            // migration failing every add looks exactly like one that never
+            // ran — which cost a real afternoon to work out.
+            (capabilityErrors.length
+              ? '<div class="bad">' + esc(capabilityErrors.join(' · ')) + '</div>' : '') +
             suppliesTable(r.supplies) +
             traysTable(r.trays) +
+            // The rows the device actually carries, and when it last read the
+            // printer itself. Everything above this line is the printer's live
+            // answer, which says nothing about whether the device kept up.
+            '<div class="faint">' + esc(pollLine) + '</div>' +
+            '<div class="faint">' + esc((r.capabilities || []).join(' ')) + '</div>' +
             '</div>';
         }).join('');
       } catch (error) {

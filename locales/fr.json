@@ -50,6 +50,8 @@
     "no_message": "aucun message de panneau",
     "stored_message": "l’appareil retient encore le message",
     "stored_status": "l’appareil retient encore l’état",
-    "some_left": "il en reste"
+    "some_left": "il en reste",
+    "last_poll": "Dernier relevé",
+    "never_polled": "Jamais relevé par l’appareil"
   }
 }

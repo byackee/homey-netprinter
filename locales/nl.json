@@ -50,6 +50,8 @@
     "no_message": "geen displaybericht",
     "stored_message": "apparaat houdt nog bericht vast",
     "stored_status": "apparaat houdt nog status vast",
-    "some_left": "nog wat over"
+    "some_left": "nog wat over",
+    "last_poll": "Laatste meting",
+    "never_polled": "Nog nooit door het apparaat uitgelezen"
   }
 }
