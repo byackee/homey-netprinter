@@ -36,6 +36,8 @@ describe('recognising the ids this app used before 1.1.0', () => {
     }
     assert.ok(isLegacyCapability('printer_tray_3'));
     assert.ok(isLegacyCapability('printer_pages'));
+    assert.ok(isLegacyCapability('alarm_printer_error'));
+    assert.ok(isLegacyCapability('alarm_cover_open'));
   });
 
   it('does not mistake a current id for an old one', () => {
@@ -44,7 +46,8 @@ describe('recognising the ids this app used before 1.1.0', () => {
     for (const id of [
       'measure_supply.black', 'measure_waste.1_2', 'measure_part.1_5',
       'measure_tray.1', 'meter_pages', 'onoff', 'printer_status',
-      'alarm_supply_low', 'printer_message', 'printer_alert',
+      'alarm_supply_low', 'alarm_problem', 'alarm_open', 'alarm_paper_low',
+      'printer_message', 'printer_alert',
     ]) {
       assert.equal(isLegacyCapability(id), false, `${id} must not be treated as legacy`);
     }
@@ -92,7 +95,7 @@ describe('resolving an id a Flow is still holding', () => {
       assert.ok(now.length > 0, `${old} maps to nothing`);
       assert.notEqual(old, now);
     }
-    assert.equal(RENAMED.size, 13 + 4 + 1);
+    assert.equal(RENAMED.size, 13 + 4 + 1 + 2);
   });
 });
 

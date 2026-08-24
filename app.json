@@ -2,7 +2,7 @@
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "com.dataweavelabs.netprinter",
   "version": "1.1.0",
-  "compatibility": ">=12.0.1",
+  "compatibility": ">=12.11.0",
   "sdk": 3,
   "platforms": [
     "local"
@@ -325,41 +325,6 @@
         ]
       },
       {
-        "id": "alarm_cover_open_true",
-        "title": {
-          "en": "A cover is opened",
-          "fr": "Un capot s’ouvre",
-          "nl": "Een klep gaat open"
-        },
-        "hint": {
-          "en": "Only fires on printers that report a cover sensor over SNMP.",
-          "fr": "Ne se déclenche que sur les imprimantes qui signalent un capteur de capot en SNMP.",
-          "nl": "Werkt alleen op printers die een klepsensor via SNMP melden."
-        },
-        "args": [
-          {
-            "type": "device",
-            "name": "device",
-            "filter": "driver_id=printer"
-          }
-        ]
-      },
-      {
-        "id": "alarm_cover_open_false",
-        "title": {
-          "en": "Every cover is closed",
-          "fr": "Tous les capots sont fermés",
-          "nl": "Alle kleppen zijn dicht"
-        },
-        "args": [
-          {
-            "type": "device",
-            "name": "device",
-            "filter": "driver_id=printer"
-          }
-        ]
-      },
-      {
         "id": "alarm_paper_low_true",
         "title": {
           "en": "Paper runs low",
@@ -473,7 +438,7 @@
         "onoff",
         "printer_status",
         "alarm_supply_low",
-        "alarm_printer_error"
+        "alarm_problem"
       ],
       "platforms": [
         "local"
@@ -514,6 +479,40 @@
             "en": "The printer stopped answering",
             "fr": "L’imprimante ne répond plus",
             "nl": "De printer antwoordt niet meer"
+          }
+        },
+        "alarm_problem": {
+          "title": {
+            "en": "Printer error",
+            "fr": "Erreur d’imprimante",
+            "nl": "Printerfout"
+          },
+          "insightsTitleTrue": {
+            "en": "The printer stopped being able to print",
+            "fr": "L’imprimante ne peut plus imprimer",
+            "nl": "De printer kan niet meer afdrukken"
+          },
+          "insightsTitleFalse": {
+            "en": "The printer can print again",
+            "fr": "L’imprimante peut de nouveau imprimer",
+            "nl": "De printer kan weer afdrukken"
+          }
+        },
+        "alarm_open": {
+          "title": {
+            "en": "Cover open",
+            "fr": "Capot ouvert",
+            "nl": "Klep open"
+          },
+          "insightsTitleTrue": {
+            "en": "A cover was opened",
+            "fr": "Un capot a été ouvert",
+            "nl": "Een klep ging open"
+          },
+          "insightsTitleFalse": {
+            "en": "Every cover is closed",
+            "fr": "Tous les capots sont fermés",
+            "nl": "Alle kleppen zijn dicht"
           }
         }
       },
@@ -668,30 +667,6 @@
     }
   ],
   "capabilities": {
-    "alarm_cover_open": {
-      "type": "boolean",
-      "title": {
-        "en": "Cover open",
-        "fr": "Capot ouvert",
-        "nl": "Klep open"
-      },
-      "uiComponent": "sensor",
-      "uiQuickAction": false,
-      "getable": true,
-      "setable": false,
-      "insights": true,
-      "insightsTitleTrue": {
-        "en": "A cover was opened",
-        "fr": "Un capot a été ouvert",
-        "nl": "Een klep is geopend"
-      },
-      "insightsTitleFalse": {
-        "en": "Every cover closed",
-        "fr": "Tous les capots sont fermés",
-        "nl": "Alle kleppen gesloten"
-      },
-      "icon": "/assets/capability/alarm_cover_open.svg"
-    },
     "alarm_paper_low": {
       "type": "boolean",
       "title": {
@@ -715,30 +690,6 @@
         "nl": "Papier bijgevuld"
       },
       "icon": "/assets/capability/alarm_paper_low.svg"
-    },
-    "alarm_printer_error": {
-      "type": "boolean",
-      "title": {
-        "en": "Printer error",
-        "fr": "Erreur imprimante",
-        "nl": "Printerfout"
-      },
-      "uiComponent": "sensor",
-      "uiQuickAction": false,
-      "getable": true,
-      "setable": false,
-      "insights": true,
-      "insightsTitleTrue": {
-        "en": "The printer reported an error",
-        "fr": "L’imprimante signale une erreur",
-        "nl": "De printer meldt een fout"
-      },
-      "insightsTitleFalse": {
-        "en": "The error cleared",
-        "fr": "L’erreur est levée",
-        "nl": "De fout is verholpen"
-      },
-      "icon": "/assets/capability/alarm_printer_error.svg"
     },
     "alarm_supply_low": {
       "type": "boolean",

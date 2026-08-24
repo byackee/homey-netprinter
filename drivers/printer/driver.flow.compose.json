@@ -181,27 +181,6 @@
       ]
     },
     {
-      "id": "alarm_cover_open_true",
-      "title": {
-        "en": "A cover is opened",
-        "fr": "Un capot s’ouvre",
-        "nl": "Een klep gaat open"
-      },
-      "hint": {
-        "en": "Only fires on printers that report a cover sensor over SNMP.",
-        "fr": "Ne se déclenche que sur les imprimantes qui signalent un capteur de capot en SNMP.",
-        "nl": "Werkt alleen op printers die een klepsensor via SNMP melden."
-      }
-    },
-    {
-      "id": "alarm_cover_open_false",
-      "title": {
-        "en": "Every cover is closed",
-        "fr": "Tous les capots sont fermés",
-        "nl": "Alle kleppen zijn dicht"
-      }
-    },
-    {
       "id": "alarm_paper_low_true",
       "title": {
         "en": "Paper runs low",

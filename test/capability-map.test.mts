@@ -194,8 +194,8 @@ describe('planCapabilities', () => {
       snapshot({ covers: [{ description: 'Front Door', open: true }] }),
       15,
     );
-    assert.equal(withCover.values.find((v) => v.id === 'alarm_cover_open')?.value, true);
-    assert.ok(!planCapabilities(snapshot(), 15).capabilities.includes('alarm_cover_open'));
+    assert.equal(withCover.values.find((v) => v.id === 'alarm_open')?.value, true);
+    assert.ok(!planCapabilities(snapshot(), 15).capabilities.includes('alarm_open'));
   });
 
   it('clears an alert the printer has stopped raising', () => {
@@ -259,7 +259,7 @@ describe('planCapabilities', () => {
 
   it('always exposes status and both alarms', () => {
     const plan = planCapabilities(snapshot(), 15);
-    for (const id of ['printer_status', 'alarm_printer_error', 'alarm_supply_low']) {
+    for (const id of ['printer_status', 'alarm_problem', 'alarm_supply_low']) {
       assert.ok(plan.capabilities.includes(id), `missing ${id}`);
     }
   });

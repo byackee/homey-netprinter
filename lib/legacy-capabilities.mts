@@ -33,6 +33,11 @@ export const RENAMED: ReadonlyMap<string, string> = new Map([
   ...LEGACY_COLOURS.map((c) => [`supply_${c}`, `${SUPPLY_CAPABILITY}.${c}`] as const),
   ...[1, 2, 3, 4].map((n) => [`printer_tray_${n}`, `${TRAY_CAPABILITY}.${n}`] as const),
   ['printer_pages', 'meter_pages'] as const,
+  // Two alarms that were re-inventing a system capability. Homey ships Flow
+  // cards for every system capability and none for a custom one, so this app
+  // was writing by hand what the platform already had.
+  ['alarm_printer_error', 'alarm_problem'] as const,
+  ['alarm_cover_open', 'alarm_open'] as const,
 ]);
 
 /** True for any capability id this app used before 1.1.0 and no longer writes. */

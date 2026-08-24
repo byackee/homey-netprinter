@@ -2,6 +2,7 @@ import Homey from 'homey';
 
 import { planCapabilities } from '../../lib/capability-map.mjs';
 import {
+  RENAMED,
   isLegacyCapability,
   legacyAssignments,
   resolveCapability,
@@ -267,25 +268,38 @@ export default class PrinterDevice extends Homey.Device {
   private async migrateLegacyCapabilities(snapshot: PrinterSnapshot): Promise<void> {
     const legacy = this.getCapabilities().filter(isLegacyCapability);
     if (legacy.length === 0) return;
-    if (snapshot.supplies.length === 0) return;
 
-    const renamed: Record<string, string> = {
-      ...(this.getStoreValue('renamedCapabilities') as Record<string, string> | undefined ?? {}),
-    };
+    // The rows whose new id only this device can work out. A supply's old slot
+    // number was its position among the colourless ones in the printer's table,
+    // so the pairing needs the table — and a thin read would record a wrong map
+    // permanently. The renames a name determines need none of that, which is
+    // why they are not behind this guard: a printer that reports no supplies at
+    // all must still have its alarms migrated.
+    if (snapshot.supplies.length > 0) {
+      const renamed: Record<string, string> = {
+        ...(this.getStoreValue('renamedCapabilities') as Record<string, string> | undefined ?? {}),
+      };
 
-    const before = legacyAssignments(snapshot.supplies);
-    const after = assignSupplyCapabilities(snapshot.supplies);
-    before.forEach((old, i) => {
-      const now = after[i]?.capability;
-      if (old !== null && now !== undefined) renamed[old] = now;
-    });
+      const before = legacyAssignments(snapshot.supplies);
+      const after = assignSupplyCapabilities(snapshot.supplies);
+      before.forEach((old, i) => {
+        const now = after[i]?.capability;
+        if (old !== null && now !== undefined) renamed[old] = now;
+      });
 
-    await this.setStoreValue('renamedCapabilities', renamed).catch((e: Error) =>
-      this.error(`Could not record the renamed capabilities: ${e.message}`));
+      await this.setStoreValue('renamedCapabilities', renamed).catch((e: Error) =>
+        this.error(`Could not record the renamed capabilities: ${e.message}`));
+    }
 
-    this.log(`Migrating ${legacy.length} capability/ies to sub-capabilities: ${legacy.join(', ')}`);
+    // Anything whose replacement is still unknown stays put for now, rather
+    // than being removed against a map that could not be built.
+    const removable = snapshot.supplies.length > 0
+      ? legacy
+      : legacy.filter((c) => RENAMED.has(c));
 
-    for (const capability of legacy) {
+    this.log(`Migrating ${removable.length} capability/ies: ${removable.join(', ')}`);
+
+    for (const capability of removable) {
       await this.removeCapability(capability).catch((e: Error) =>
         this.error(`Could not remove ${capability}: ${e.message}`));
       this.appliedTitles.delete(capability);
@@ -377,7 +391,7 @@ export default class PrinterDevice extends Homey.Device {
     }
     if (snapshot.pageCount !== null) this.lastPageCount = snapshot.pageCount;
 
-    const errorAlarm = values.find((v) => v.id === 'alarm_printer_error')?.value === true;
+    const errorAlarm = values.find((v) => v.id === 'alarm_problem')?.value === true;
     if (errorAlarm && !this.lastErrorAlarm) {
       await this.homey.flow
         .getDeviceTriggerCard('printer_error')

@@ -67,16 +67,9 @@ const ICONS = {
     + '<path d="M11.1 9.4h1.8v4.3h-1.8Z"/>'
     + '<path d="M11.1 14.9h1.8v1.9h-1.8Z"/>',
 
-  printer_error: '<path fill-rule="evenodd" d="M12 2.9 22.5 21H1.5L12 2.9Zm0 3.9L5.1 18.8h13.8L12 6.8Z"/>'
-    + '<path d="M11.1 10.1h1.8v4.6h-1.8Z"/>'
-    + '<path d="M11.1 15.9h1.8v1.9h-1.8Z"/>',
-
   paper_low: '<path fill-rule="evenodd" d="M5.2 2.6h8.2l4.4 4.4v14.4H5.2V2.6ZM7.1 4.5h4.3v4.3h4.4v10.1H7.1V4.5Z"/>'
     + '<path d="M10.4 9.9h2v5h-2Z"/>'
     + '<path d="M10.4 16.1h2v2h-2Z"/>',
-
-  cover_open: '<path d="M3.5 7.1 13.5 3l.8 1.9-10 4.1Z"/>'
-    + '<path fill-rule="evenodd" d="M3.4 9.6h17.2v11.4H3.4V9.6Zm1.9 1.9v7.6h13.4v-7.6H5.3Z"/>',
 
   alert: '<path d="M12 2.2a2 2 0 0 1 2 2v.4a6.2 6.2 0 0 1 4.2 5.9v3.6l1.7 3.1v1.5H4.1v-1.5l1.7-3.1v-3.6A6.2 6.2 0 0 1 10 4.6v-.4a2 2 0 0 1 2-2Z"/>'
     + '<path d="M9.6 20.1h4.8a2.4 2.4 0 0 1-4.8 0Z"/>',
@@ -94,9 +87,7 @@ const ICON_FILES = {
   printer_pages: 'pages',
   printer_alert: 'alert',
   alarm_supply_low: 'supply_low',
-  alarm_printer_error: 'printer_error',
   alarm_paper_low: 'paper_low',
-  alarm_cover_open: 'cover_open',
 };
 
 for (const [file, shape] of Object.entries(ICON_FILES)) {

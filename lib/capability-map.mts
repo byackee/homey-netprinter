@@ -209,7 +209,7 @@ export function planCapabilities(snapshot: PrinterSnapshot, threshold: number): 
   addScalar('onoff', true);
 
   addScalar('printer_status', snapshot.status);
-  addScalar('alarm_printer_error', hasBlockingError(snapshot.errors));
+  addScalar('alarm_problem', hasBlockingError(snapshot.errors));
   addScalar('alarm_supply_low', isSupplyLow(snapshot.supplies, threshold));
   addScalar('alarm_paper_low', isPaperLow(snapshot.inputTrays, snapshot.errors, threshold));
 
@@ -217,7 +217,7 @@ export function planCapabilities(snapshot: PrinterSnapshot, threshold: number): 
   // `doorOpen` alone is not enough to add the row, because a printer that never
   // sets it is indistinguishable from one whose door is simply shut.
   if (snapshot.covers.length > 0) {
-    addScalar('alarm_cover_open', isCoverOpen(snapshot.covers, snapshot.errors));
+    addScalar('alarm_open', isCoverOpen(snapshot.covers, snapshot.errors));
   }
 
   // These two are only worth a *row* when the printer actually reports them; an
