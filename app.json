@@ -667,6 +667,19 @@
     }
   ],
   "capabilities": {
+    "alarm_cover_open": {
+      "type": "boolean",
+      "title": {
+        "en": "Cover open",
+        "fr": "Capot ouvert",
+        "nl": "Klep open"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "icon": "/assets/capability/alarm_supply_low.svg"
+    },
     "alarm_paper_low": {
       "type": "boolean",
       "title": {
@@ -690,6 +703,19 @@
         "nl": "Papier bijgevuld"
       },
       "icon": "/assets/capability/alarm_paper_low.svg"
+    },
+    "alarm_printer_error": {
+      "type": "boolean",
+      "title": {
+        "en": "Printer error",
+        "fr": "Erreur imprimante",
+        "nl": "Printerfout"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "icon": "/assets/capability/alarm_supply_low.svg"
     },
     "alarm_supply_low": {
       "type": "boolean",
@@ -884,6 +910,26 @@
         }
       ]
     },
+    "printer_pages": {
+      "type": "number",
+      "title": {
+        "en": "Pages printed",
+        "fr": "Pages imprimées",
+        "nl": "Afgedrukte pagina's"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "pages",
+        "fr": "pages",
+        "nl": "pagina's"
+      },
+      "min": 0,
+      "decimals": 0,
+      "icon": "/assets/capability/printer_pages.svg"
+    },
     "printer_status": {
       "type": "enum",
       "title": {
@@ -946,6 +992,552 @@
           }
         }
       ]
+    },
+    "printer_tray_1": {
+      "type": "number",
+      "title": {
+        "en": "Tray 1",
+        "fr": "Bac 1",
+        "nl": "Lade 1"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/printer_tray.svg"
+    },
+    "printer_tray_2": {
+      "type": "number",
+      "title": {
+        "en": "Tray 2",
+        "fr": "Bac 2",
+        "nl": "Lade 2"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/printer_tray.svg"
+    },
+    "printer_tray_3": {
+      "type": "number",
+      "title": {
+        "en": "Tray 3",
+        "fr": "Bac 3",
+        "nl": "Lade 3"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/printer_tray.svg"
+    },
+    "printer_tray_4": {
+      "type": "number",
+      "title": {
+        "en": "Tray 4",
+        "fr": "Bac 4",
+        "nl": "Lade 4"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/printer_tray.svg"
+    },
+    "supply_black": {
+      "type": "number",
+      "title": {
+        "en": "Black",
+        "fr": "Noir",
+        "nl": "Zwart"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_blue": {
+      "type": "number",
+      "title": {
+        "en": "Blue",
+        "fr": "Bleu",
+        "nl": "Blauw"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_cyan": {
+      "type": "number",
+      "title": {
+        "en": "Cyan",
+        "fr": "Cyan",
+        "nl": "Cyaan"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_green": {
+      "type": "number",
+      "title": {
+        "en": "Green",
+        "fr": "Vert",
+        "nl": "Groen"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_grey": {
+      "type": "number",
+      "title": {
+        "en": "Grey",
+        "fr": "Gris",
+        "nl": "Grijs"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_light_cyan": {
+      "type": "number",
+      "title": {
+        "en": "Light cyan",
+        "fr": "Cyan clair",
+        "nl": "Lichtcyaan"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_light_magenta": {
+      "type": "number",
+      "title": {
+        "en": "Light magenta",
+        "fr": "Magenta clair",
+        "nl": "Lichtmagenta"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_magenta": {
+      "type": "number",
+      "title": {
+        "en": "Magenta",
+        "fr": "Magenta",
+        "nl": "Magenta"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_matte_black": {
+      "type": "number",
+      "title": {
+        "en": "Matte black",
+        "fr": "Noir mat",
+        "nl": "Mat zwart"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_orange": {
+      "type": "number",
+      "title": {
+        "en": "Orange",
+        "fr": "Orange",
+        "nl": "Oranje"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_other_1": {
+      "type": "number",
+      "title": {
+        "en": "Supply 1",
+        "fr": "Consommable 1",
+        "nl": "Verbruiksartikel 1"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_2": {
+      "type": "number",
+      "title": {
+        "en": "Supply 2",
+        "fr": "Consommable 2",
+        "nl": "Verbruiksartikel 2"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_3": {
+      "type": "number",
+      "title": {
+        "en": "Supply 3",
+        "fr": "Consommable 3",
+        "nl": "Verbruiksartikel 3"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_4": {
+      "type": "number",
+      "title": {
+        "en": "Supply 4",
+        "fr": "Consommable 4",
+        "nl": "Verbruiksartikel 4"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_5": {
+      "type": "number",
+      "title": {
+        "en": "Supply 5",
+        "fr": "Consommable 5",
+        "nl": "Verbruiksartikel 5"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_6": {
+      "type": "number",
+      "title": {
+        "en": "Supply 6",
+        "fr": "Consommable 6",
+        "nl": "Verbruiksartikel 6"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_7": {
+      "type": "number",
+      "title": {
+        "en": "Supply 7",
+        "fr": "Consommable 7",
+        "nl": "Verbruiksartikel 7"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_other_8": {
+      "type": "number",
+      "title": {
+        "en": "Supply 8",
+        "fr": "Consommable 8",
+        "nl": "Verbruiksartikel 8"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_cartridge.svg"
+    },
+    "supply_photo_black": {
+      "type": "number",
+      "title": {
+        "en": "Photo black",
+        "fr": "Noir photo",
+        "nl": "Fotozwart"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_red": {
+      "type": "number",
+      "title": {
+        "en": "Red",
+        "fr": "Rouge",
+        "nl": "Rood"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
+    },
+    "supply_waste": {
+      "type": "number",
+      "title": {
+        "en": "Waste tank",
+        "fr": "Réservoir d’encre usée",
+        "nl": "Afvalreservoir"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_waste.svg"
+    },
+    "supply_yellow": {
+      "type": "number",
+      "title": {
+        "en": "Yellow",
+        "fr": "Jaune",
+        "nl": "Geel"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "units": {
+        "en": "%",
+        "fr": " %",
+        "nl": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "icon": "/assets/capability/supply_ink.svg"
     }
   },
   "discovery": {
