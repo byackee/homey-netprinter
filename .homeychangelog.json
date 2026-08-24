@@ -88,5 +88,10 @@
     "en": "A printer that stops answering now dims its tile straight away, while keeping its last readings on screen. Marking it unavailable — which hides the readings and offers a repair — is now the separate, optional step it should always have been.",
     "fr": "Une imprimante qui cesse de répondre grise désormais sa tuile immédiatement, tout en conservant ses derniers relevés à l’écran. La marquer indisponible — ce qui masque les relevés et propose une réparation — devient l’étape distincte et facultative qu’elle aurait toujours dû être.",
     "nl": "Een printer die niet meer antwoordt maakt zijn tegel nu meteen grijs, terwijl de laatste metingen zichtbaar blijven. Hem als niet beschikbaar markeren — wat de metingen verbergt en een reparatie aanbiedt — is nu de aparte, optionele stap die het altijd had moeten zijn."
+  },
+  "1.0.19": {
+    "en": "The tile now dims even when the printer was already off when the app started, and setting “Show as offline after” to 0 clears an unavailable flag that was already set instead of only preventing the next one.",
+    "fr": "La tuile se grise même si l’imprimante était déjà éteinte au démarrage de l’app, et régler « Afficher hors ligne après » sur 0 libère un appareil déjà marqué indisponible au lieu d’empêcher seulement le suivant.",
+    "nl": "De tegel wordt nu ook grijs als de printer al uit stond toen de app startte, en “Toon als offline na” op 0 zetten heft een al gezette niet-beschikbaarmarkering op in plaats van alleen de volgende te voorkomen."
   }
 }

@@ -58,10 +58,36 @@ export default class PrinterDevice extends Homey.Device {
   override async onInit(): Promise<void> {
     this.buildReader();
 
+    await this.adoptDeclaredCapabilities();
+
     // The first poll is started, not awaited. Homey initialises devices in
     // sequence, so blocking here for a printer that is asleep — up to a full
     // SNMP timeout per OID — would hold up every other device behind it.
     void this.poll().finally(() => this.scheduleNextPoll());
+  }
+
+  /**
+   * Gives an existing device the capabilities the driver now declares.
+   *
+   * Homey hands the manifest's capability list to devices added *after* it
+   * changed; ones already paired keep whatever they had. Every other capability
+   * here is added from a snapshot instead, which is right for them — they
+   * describe what the printer reported. `onoff` describes whether it reported
+   * at all, so the case that matters most is a printer switched off when the
+   * app starts, which is exactly the case no snapshot can cover: a device
+   * updated while its printer was off got no `onoff` and no dimmed tile, which
+   * is the whole point of having one.
+   *
+   * Done from the manifest rather than by naming `onoff` so the next capability
+   * added to the driver does not repeat this.
+   */
+  private async adoptDeclaredCapabilities(): Promise<void> {
+    const declared = (this.driver.manifest as { capabilities?: string[] }).capabilities ?? [];
+    for (const capability of declared) {
+      if (this.hasCapability(capability)) continue;
+      await this.addCapability(capability).catch((e: Error) =>
+        this.error(`Could not add ${capability}: ${e.message}`));
+    }
   }
 
   /** Rebuilds the SNMP reader from current settings. Called on init and on every settings change. */
@@ -147,6 +173,12 @@ export default class PrinterDevice extends Homey.Device {
     // available as homey insists on a repair". The status capability still says
     // `offline` on the first missed check either way, so Flows lose nothing.
     if (offlineAfter === 0) {
+      // Clearing, not just abstaining. The flag survives an app restart, and
+      // only a successful read ever lifted it — so a device flagged before the
+      // setting was turned off stayed flagged, showing a repair screen the
+      // setting promised to prevent, with no way out but the printer coming
+      // back on. "Never mark it unavailable" has to mean it is not marked now.
+      await this.clearUnavailable();
       this.log(`${message} (not marking unavailable: offline_after is 0)`);
       return;
     }
@@ -158,6 +190,13 @@ export default class PrinterDevice extends Homey.Device {
 
     this.error(message);
     await this.setUnavailable(this.homey.__('device.unreachable')).catch(() => {});
+  }
+
+  /** Lifts the unavailable flag if it is set. Safe to call when it is not. */
+  private async clearUnavailable(): Promise<void> {
+    if (this.getAvailable()) return;
+    await this.setAvailable().catch((e: Error) =>
+      this.error(`Could not clear the unavailable flag: ${e.message}`));
   }
 
   /** Writes a snapshot to capabilities, adding or removing rows as the printer's supplies change. */
@@ -411,6 +450,16 @@ export default class PrinterDevice extends Homey.Device {
         void this.poll();
       }, 500);
     }
+    // Turning the flag off has to act on the device that is greyed out right
+    // now — that is the state the user is looking at when they come to change
+    // it. Waiting for the next failed poll would leave the repair screen up for
+    // a whole poll interval after the setting said it should be gone.
+    if (changedKeys.includes('offline_after')) {
+      this.homey.setTimeout(() => {
+        if (this.readSettings().offlineAfter === 0) void this.clearUnavailable();
+      }, 500);
+    }
+
     if (changedKeys.includes('poll_interval')) {
       this.homey.setTimeout(() => {
         this.clearTimer();
