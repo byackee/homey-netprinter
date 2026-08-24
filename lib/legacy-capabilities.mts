@@ -109,3 +109,29 @@ export function legacyAssignments(
 
   return out;
 }
+
+/**
+ * Whether a replay may be believed for a given device.
+ *
+ * {@link legacyAssignments} runs over the supplies read *now*, but the ids it
+ * reproduces were handed out against whatever the printer reported the last
+ * time it polled before the update. If the two disagree, the pairing is wrong
+ * and recording it would point a Flow at a different consumable — so the replay
+ * has to reproduce exactly the supply ids the device is actually carrying.
+ *
+ * Both sides must be the same kind of thing, which is the mistake this function
+ * exists to make impossible: `legacyAssignments` only ever yields `supply_*`
+ * ids, so the device's side is its `supply_*` capabilities and nothing else.
+ * Comparing them against "the legacy ids the rename table does not cover"
+ * instead — waste and parts only — made the sizes disagree on every colour
+ * printer, so the guard rejected every migration it was ever asked about.
+ */
+export function replayIsTrustworthy(
+  replayed: ReadonlyArray<string | null>,
+  deviceCapabilities: readonly string[],
+): boolean {
+  const produced = new Set(replayed.filter((id): id is string => id !== null));
+  const held = new Set(deviceCapabilities.filter((id) => id.startsWith('supply_')));
+
+  return produced.size === held.size && [...held].every((id) => produced.has(id));
+}

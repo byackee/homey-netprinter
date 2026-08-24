@@ -5,6 +5,7 @@ import {
   RENAMED,
   isLegacyCapability,
   legacyAssignments,
+  replayIsTrustworthy,
   resolveCapability,
 } from '../../lib/legacy-capabilities.mjs';
 import {
@@ -360,9 +361,18 @@ export default class PrinterDevice extends Homey.Device {
     // nothing at least stops the Flow firing instead of firing on a lie.
     //
     // So the replay has to agree with the device before it is believed.
-    const replayed = new Set(before.filter((id): id is string => id !== null));
-    const held = new Set(legacy.filter((id) => !RENAMED.has(id)));
-    const trustworthy = replayed.size === held.size && [...held].every((id) => replayed.has(id));
+    // Compared like with like, which the first version of this check was not.
+    //
+    // `legacyAssignments` only ever produces `supply_*` ids, so that is what the
+    // device's side of the comparison has to be. It was written as "the legacy
+    // ids RENAMED does not cover", which is a different set: the replay yields
+    // every colour it finds while that side yields only the waste and part rows,
+    // so the two sizes never matched and the guard fired on every colour printer
+    // alive. A Ricoh SP C242SF reported it — five supplies replayed, one id
+    // compared, no map ever recorded, `supply_waste` stranded on the device for
+    // good and the warning logged every five minutes.
+    const held = new Set(legacy.filter((id) => id.startsWith('supply_')));
+    const trustworthy = replayIsTrustworthy(before, legacy);
 
     let recorded = false;
 

@@ -5,6 +5,7 @@ import {
   RENAMED,
   isLegacyCapability,
   legacyAssignments,
+  replayIsTrustworthy,
   resolveCapability,
 } from '../lib/legacy-capabilities.mjs';
 import { assignSupplyCapabilities } from '../lib/supply-capabilities.mjs';
@@ -171,5 +172,56 @@ describe('pairing old rows with new ones during migration', () => {
   it('gives a second black the numbered slot it used to get', () => {
     const two = [supply('black', 'Black A', '1.1'), supply('black', 'Black B', '1.2')];
     assert.deepEqual(legacyAssignments(two), ['supply_black', 'supply_other_1']);
+  });
+});
+
+describe('deciding whether a replay may be believed', () => {
+  /**
+   * The Ricoh SP C242SF that reported this, exactly as it is carried: four
+   * toners, a waste cartridge, two trays, the page counter and both old alarms.
+   */
+  const ricohDevice = [
+    'supply_black', 'supply_cyan', 'supply_magenta', 'supply_yellow', 'supply_waste',
+    'printer_tray_1', 'printer_tray_2', 'printer_pages',
+    'alarm_printer_error', 'alarm_cover_open',
+  ];
+  const ricohReplay = [
+    'supply_cyan', 'supply_magenta', 'supply_yellow', 'supply_black', 'supply_waste',
+  ];
+
+  it('believes a replay that reproduces the device exactly', () => {
+    // The regression. The first version compared the replay's output against
+    // "the legacy ids the rename table does not cover" — the waste row alone —
+    // so five never equalled one and the guard rejected every colour printer
+    // there is. The device kept a dead supply_waste for ever, no rename map was
+    // ever written, and it logged the refusal every five minutes.
+    assert.equal(replayIsTrustworthy(ricohReplay, ricohDevice), true);
+  });
+
+  it('refuses a replay that lost a row, which is what it is for', () => {
+    // A thin supplies walk: the waste cartridge did not come back this time.
+    // Believing it would map supply_waste to nothing and strand the Flow.
+    const thin = ricohReplay.filter((id) => id !== 'supply_waste');
+    assert.equal(replayIsTrustworthy(thin, ricohDevice), false);
+  });
+
+  it('refuses a replay carrying a row the device never had', () => {
+    // The printer started reporting one more colour than when the ids were
+    // handed out, so the positions no longer line up.
+    assert.equal(replayIsTrustworthy([...ricohReplay, 'supply_grey'], ricohDevice), false);
+  });
+
+  it('ignores everything that is not a supply on the device side', () => {
+    // Trays, the page counter and the alarms are renamed from a table, never
+    // from the replay, so they must not weigh on this decision either way.
+    assert.equal(replayIsTrustworthy(ricohReplay, [...ricohDevice, 'printer_tray_3']), true);
+    assert.equal(replayIsTrustworthy(ricohReplay, ricohDevice.filter((c) => !c.startsWith('printer_'))), true);
+  });
+
+  it('treats the slots a full table overflowed as absent, not as a match', () => {
+    // legacyAssignments yields null for a ninth colourless supply that never
+    // got a slot. A null is not an id and must not count as one.
+    assert.equal(replayIsTrustworthy(['supply_black', null], ['supply_black']), true);
+    assert.equal(replayIsTrustworthy([null], ['supply_black']), false);
   });
 });
