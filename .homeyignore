@@ -1,5 +1,10 @@
 test/
 tools/
 .testbuild/
+.toolsbuild/
+.src-images/
 .omc/
+.claude/
 tsconfig.test.json
+tsconfig.tools.json
+README.md

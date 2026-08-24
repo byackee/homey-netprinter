@@ -10,7 +10,9 @@
   "setable": false,
   "insights": true,
   "units": {
-    "en": "%"
+    "en": "%",
+    "fr": " %",
+    "nl": "%"
   },
   "min": 0,
   "max": 100,

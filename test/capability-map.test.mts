@@ -6,6 +6,7 @@ import {
   isSupplyLow,
   lowSupplyNames,
   planCapabilities,
+  shortTitle,
 } from '../lib/capability-map.mjs';
 import type { InputTray, Supply, SupplyColour } from '../lib/printer-mib.mjs';
 import type { PrinterSnapshot } from '../lib/printer-reader.mjs';
@@ -364,5 +365,46 @@ describe('the responding capability', () => {
     const plan = planCapabilities(snapshot(), 15);
     assert.equal(plan.values.find((v) => v.id === 'onoff')?.value, true);
     assert.ok(plan.capabilities.includes('onoff'));
+  });
+});
+
+describe('shortTitle', () => {
+  /**
+   * Homey asks for a capability title of two or three words: it sits beside a
+   * value on a narrow row, and the UI cuts a long one off wherever it lands.
+   * The printer's own wording is what we put there, and printers are not
+   * bound by that — a Lexmark answers with its model and yield class in the
+   * same string.
+   */
+  it('leaves a title that already fits exactly as it is', () => {
+    assert.equal(shortTitle('Waste Toner Bottle'), 'Waste Toner Bottle');
+    // Four words, and the last one is the part number to reorder. The budget
+    // exists to bound the row, not to enforce a word count that would throw
+    // away the most useful half of a real Epson title.
+    assert.equal(shortTitle('Black Ink Cartridge 202/202XL'), 'Black Ink Cartridge 202/202XL');
+  });
+
+  it('keeps whole words rather than severing one', () => {
+    const title = shortTitle('Lexmark C3326 Cyan Toner Cartridge High Yield');
+    assert.ok(title.length <= 32, `too long: ${title}`);
+    assert.equal(title, 'Lexmark C3326 Cyan Toner');
+    assert.ok(!title.endsWith(' '), 'left a trailing space');
+  });
+
+  it('cuts a single overlong word, since there is no word boundary to use', () => {
+    const title = shortTitle('Photoconductorunitreplacementkitblack');
+    assert.ok(title.length <= 32, `too long: ${title}`);
+    assert.ok(title.endsWith('\u2026'), 'a severed word should say so');
+  });
+
+  it('collapses the whitespace printers pad their strings with', () => {
+    assert.equal(shortTitle('  Cyan   Cartridge \n'), 'Cyan Cartridge');
+  });
+
+  it('is applied to the titles the plan hands to Homey', () => {
+    const plan = planCapabilities(snapshot({
+      supplies: [supply('cyan', 50, 'Lexmark C3326 Cyan Toner Cartridge High Yield')],
+    }), 15);
+    assert.equal(plan.titles.get('supply_cyan'), 'Lexmark C3326 Cyan Toner');
   });
 });

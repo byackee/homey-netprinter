@@ -16,14 +16,26 @@
         {
           "name": "supply",
           "type": "string",
-          "title": { "en": "Supply", "fr": "Consommable", "nl": "Verbruiksartikel" },
-          "example": { "en": "Black Ink Cartridge 202/202XL" }
+          "title": {
+            "en": "Supply",
+            "fr": "Consommable",
+            "nl": "Verbruiksartikel"
+          },
+          "example": {
+            "en": "Black Ink Cartridge 202/202XL"
+          }
         },
         {
           "name": "level",
           "type": "number",
-          "title": { "en": "Level", "fr": "Niveau", "nl": "Niveau" },
-          "example": { "en": "12" }
+          "title": {
+            "en": "Level",
+            "fr": "Niveau",
+            "nl": "Niveau"
+          },
+          "example": {
+            "en": "12"
+          }
         }
       ]
     },
@@ -43,13 +55,52 @@
         {
           "name": "status",
           "type": "dropdown",
-          "title": { "en": "Status", "fr": "État", "nl": "Status" },
+          "title": {
+            "en": "Status",
+            "fr": "État",
+            "nl": "Status"
+          },
           "values": [
-            { "id": "any", "title": { "en": "any status", "fr": "n’importe quel état", "nl": "elke status" } },
-            { "id": "idle", "title": { "en": "Ready", "fr": "Prête", "nl": "Gereed" } },
-            { "id": "printing", "title": { "en": "Printing", "fr": "Impression", "nl": "Bezig met afdrukken" } },
-            { "id": "warmup", "title": { "en": "Warming up", "fr": "Préchauffage", "nl": "Opwarmen" } },
-            { "id": "offline", "title": { "en": "Offline", "fr": "Hors ligne", "nl": "Offline" } }
+            {
+              "id": "any",
+              "title": {
+                "en": "any status",
+                "fr": "n’importe quel état",
+                "nl": "elke status"
+              }
+            },
+            {
+              "id": "idle",
+              "title": {
+                "en": "Ready",
+                "fr": "Prête",
+                "nl": "Gereed"
+              }
+            },
+            {
+              "id": "printing",
+              "title": {
+                "en": "Printing",
+                "fr": "Impression",
+                "nl": "Bezig met afdrukken"
+              }
+            },
+            {
+              "id": "warmup",
+              "title": {
+                "en": "Warming up",
+                "fr": "Préchauffage",
+                "nl": "Opwarmen"
+              }
+            },
+            {
+              "id": "offline",
+              "title": {
+                "en": "Offline",
+                "fr": "Hors ligne",
+                "nl": "Offline"
+              }
+            }
           ]
         }
       ],
@@ -57,8 +108,14 @@
         {
           "name": "status",
           "type": "string",
-          "title": { "en": "Status", "fr": "État", "nl": "Status" },
-          "example": { "en": "printing" }
+          "title": {
+            "en": "Status",
+            "fr": "État",
+            "nl": "Status"
+          },
+          "example": {
+            "en": "printing"
+          }
         }
       ]
     },
@@ -73,14 +130,26 @@
         {
           "name": "pages",
           "type": "number",
-          "title": { "en": "Pages since last check", "fr": "Pages depuis le dernier relevé", "nl": "Pagina's sinds laatste meting" },
-          "example": { "en": "3" }
+          "title": {
+            "en": "Pages since last check",
+            "fr": "Pages depuis le dernier relevé",
+            "nl": "Pagina's sinds laatste meting"
+          },
+          "example": {
+            "en": "3"
+          }
         },
         {
           "name": "total",
           "type": "number",
-          "title": { "en": "Lifetime total", "fr": "Total depuis l’origine", "nl": "Totaal sinds ingebruikname" },
-          "example": { "en": "1116" }
+          "title": {
+            "en": "Lifetime total",
+            "fr": "Total depuis l’origine",
+            "nl": "Totaal sinds ingebruikname"
+          },
+          "example": {
+            "en": "1116"
+          }
         }
       ]
     },
@@ -100,10 +169,58 @@
         {
           "name": "errors",
           "type": "string",
-          "title": { "en": "Errors", "fr": "Erreurs", "nl": "Fouten" },
-          "example": { "en": "jammed, doorOpen" }
+          "title": {
+            "en": "Errors",
+            "fr": "Erreurs",
+            "nl": "Fouten"
+          },
+          "example": {
+            "en": "jammed, doorOpen"
+          }
         }
       ]
+    },
+    {
+      "id": "alarm_cover_open_true",
+      "title": {
+        "en": "A cover is opened",
+        "fr": "Un capot s’ouvre",
+        "nl": "Een klep gaat open"
+      },
+      "hint": {
+        "en": "Only fires on printers that report a cover sensor over SNMP.",
+        "fr": "Ne se déclenche que sur les imprimantes qui signalent un capteur de capot en SNMP.",
+        "nl": "Werkt alleen op printers die een klepsensor via SNMP melden."
+      }
+    },
+    {
+      "id": "alarm_cover_open_false",
+      "title": {
+        "en": "Every cover is closed",
+        "fr": "Tous les capots sont fermés",
+        "nl": "Alle kleppen zijn dicht"
+      }
+    },
+    {
+      "id": "alarm_paper_low_true",
+      "title": {
+        "en": "Paper runs low",
+        "fr": "Le papier vient à manquer",
+        "nl": "Het papier raakt op"
+      },
+      "hint": {
+        "en": "Uses the same threshold as the supply alarm. Manual feed slots are ignored, since an empty one is their resting state.",
+        "fr": "Utilise le même seuil que l’alarme de consommable. Les bacs d’alimentation manuelle sont ignorés : vides, ils sont au repos.",
+        "nl": "Gebruikt dezelfde drempel als het verbruiksalarm. Handinvoerladen tellen niet mee; leeg is hun ruststand."
+      }
+    },
+    {
+      "id": "alarm_paper_low_false",
+      "title": {
+        "en": "Paper is topped up",
+        "fr": "Le papier est réapprovisionné",
+        "nl": "Het papier is bijgevuld"
+      }
     }
   ],
   "conditions": [
@@ -123,12 +240,20 @@
         {
           "name": "capability",
           "type": "autocomplete",
-          "title": { "en": "Supply", "fr": "Consommable", "nl": "Verbruiksartikel" }
+          "title": {
+            "en": "Supply",
+            "fr": "Consommable",
+            "nl": "Verbruiksartikel"
+          }
         },
         {
           "name": "level",
           "type": "number",
-          "title": { "en": "Level", "fr": "Niveau", "nl": "Niveau" },
+          "title": {
+            "en": "Level",
+            "fr": "Niveau",
+            "nl": "Niveau"
+          },
           "min": 0,
           "max": 100,
           "step": 1

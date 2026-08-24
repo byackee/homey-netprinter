@@ -1,32 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="104 92 816 816" width="816" height="816">
-  <g fill="none" stroke="#000000" stroke-width="34" stroke-linejoin="round" stroke-linecap="round">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 960" width="960" height="960">
+  <!--
+    The driver icon, drawn from a right-side three-quarter angle as the App
+    Store guidelines ask for, so it reads as a physical device rather than a
+    symbol. It must not be the app icon: that one is the app's mark, this one is
+    the thing the user adds to Homey. Line work only, transparent background,
+    the full 960 canvas.
+  -->
+  <g fill="none" stroke="#000000" stroke-width="38" stroke-linejoin="round" stroke-linecap="round">
     <!--
-      Paper feeder. Already open at the bottom, because the body is in front of it.
+      The sheet in the output slot. Open along the bottom: its edges stop at the
+      slot rather than closing across it, so the paper reads as coming out of
+      the printer instead of lying on top of it.
     -->
-    <path d="M305 350V185Q305 155 335 155H689Q719 155 719 185V350"/>
+    <path d="M320 380 275 175H599L644 380"/>
+    <path d="M345 262H535"/>
+
+    <!-- The slot itself, on the top face, one line the sheet rises out of. -->
+    <path d="M290 380H674"/>
 
     <!--
-      Printer body, open along the bottom where the page passes in front of it.
-      The gap runs from x=271 to x=753: those are the page's sloped edges where
-      they cross y=690. Drawing the full rectangle here is what made the body's
-      line show through the page.
+      Body: the front face, then the right face and the top, which together read
+      as a box seen from its right-hand side.
     -->
-    <path d="M753 690H860Q900 690 900 650V386Q900 350 864 350H160Q124 350 124 386V650Q124 690 164 690H271"/>
+    <path d="M200 430H620V720H200Z"/>
+    <path d="M620 430 780 320V610L620 720"/>
+    <path d="M200 430 360 320H780"/>
 
-    <!--
-      Output slot, open along the bottom for the same reason. Its sides stay
-      visible: at x=234 and x=790 they fall outside the page, which is only
-      283 to 741 wide where it crosses y=600.
-    -->
-    <path d="M741 600H774Q790 600 790 585V516Q790 500 774 500H250Q234 500 234 516V585Q234 600 250 600H283"/>
-
-    <!-- The printed page, in front of everything, so it is drawn whole. -->
-    <path d="M290 550L734 550L770 820Q773 845 748 845H276Q251 845 254 820Z"/>
-
-    <!-- Lines of text on the page. -->
-    <path stroke-width="22" d="M352 655H672M352 707H678M352 759H547"/>
+    <!-- Control panel on the front, and the paper drawer below it. -->
+    <path d="M480 480H580"/>
+    <path d="M240 630H540"/>
   </g>
-
-  <!-- Status light -->
-  <circle cx="245" cy="430" r="26" fill="#000000"/>
 </svg>

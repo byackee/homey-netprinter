@@ -38,6 +38,41 @@ const FALLBACK_SLOTS = 8;
  */
 const TRAY_SLOTS = 4;
 
+/**
+ * How much of a printer's own wording fits in a capability title.
+ *
+ * Homey's guideline counts words — two or three — but what it is really
+ * protecting is a narrow row where a long title is cut off wherever it lands.
+ * Counting characters serves that better here, because the four-word
+ * "Black Ink Cartridge 202/202XL" an Epson answers with ends in the part
+ * number the user has to go and order, which is the whole reason we prefer the
+ * printer's wording to the colour we inferred. Thirty-two characters keeps that
+ * one whole and still bounds a Lexmark that adds its model and yield class.
+ */
+const MAX_TITLE_LENGTH = 32;
+
+/**
+ * Trims a printer's wording to something that fits a capability row.
+ *
+ * Whole words are kept, so a truncated title still reads as words rather than
+ * a severed one. A single word longer than the budget is cut with an ellipsis,
+ * which at least says out loud that there was more.
+ */
+export function shortTitle(text: string): string {
+  const clean = text.trim().replace(/\s+/g, ' ');
+  if (clean.length <= MAX_TITLE_LENGTH) return clean;
+
+  const words = clean.split(' ');
+  let kept = '';
+  for (const word of words) {
+    const next = kept === '' ? word : `${kept} ${word}`;
+    if (next.length > MAX_TITLE_LENGTH) break;
+    kept = next;
+  }
+
+  return kept === '' ? `${clean.slice(0, MAX_TITLE_LENGTH - 1)}…` : kept;
+}
+
 /** A capability id and the value to write to it. */
 export interface CapabilityValue {
   id: string;
@@ -183,7 +218,7 @@ export function planCapabilities(snapshot: PrinterSnapshot, threshold: number): 
     values.push({ id: capability, value: supply.percent });
     // The printer's own wording names the exact cartridge to buy, which is more
     // useful at a glance than the colour we inferred from it.
-    if (supply.description) titles.set(capability, supply.description);
+    if (supply.description) titles.set(capability, shortTitle(supply.description));
   }
 
   const addScalar = (id: string, value: CapabilityValue['value']) => {
@@ -201,7 +236,7 @@ export function planCapabilities(snapshot: PrinterSnapshot, threshold: number): 
     // "Tray 2 · A4" is what tells two identical cassettes apart. Either half may
     // be missing, so the separator is only drawn when both are there.
     const label = [tray.name.trim(), tray.media.trim()].filter((s) => s.length > 0).join(' · ');
-    if (label.length > 0) titles.set(id, label);
+    if (label.length > 0) titles.set(id, shortTitle(label));
   });
 
   // We only get here from a successful read, so the printer answered.

@@ -156,7 +156,10 @@ function levelCapability({ en, fr, nl }, icon) {
     getable: true,
     setable: false,
     insights: true,
-    units: { en: '%' },
+    // French sets a space before the percent sign, and Homey's own capabilities
+    // carry it. A units object with only `en` also leaves the capability
+    // half-translated in an app whose titles and Flow cards are not.
+    units: { en: '%', fr: ' %', nl: '%' },
     min: 0,
     max: 100,
     decimals: 0,

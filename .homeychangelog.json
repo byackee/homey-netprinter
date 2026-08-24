@@ -93,5 +93,10 @@
     "en": "The tile now dims even when the printer was already off when the app started, and setting “Show as offline after” to 0 clears an unavailable flag that was already set instead of only preventing the next one.",
     "fr": "La tuile se grise même si l’imprimante était déjà éteinte au démarrage de l’app, et régler « Afficher hors ligne après » sur 0 libère un appareil déjà marqué indisponible au lieu d’empêcher seulement le suivant.",
     "nl": "De tegel wordt nu ook grijs als de printer al uit stond toen de app startte, en “Toon als offline na” op 0 zetten heft een al gezette niet-beschikbaarmarkering op in plaats van alleen de volgende te voorkomen."
+  },
+  "1.0.20": {
+    "en": "Flow cards for the cover and paper alarms, which had none. Capability titles taken from the printer are now bounded so a long one cannot overflow its row, percentages are translated, and the driver has an icon of its own.",
+    "fr": "Des cartes Flow pour les alarmes de capot et de papier, qui n’en avaient aucune. Les titres de capacité repris de l’imprimante sont bornés pour ne plus déborder de leur ligne, les pourcentages sont traduits, et le driver a désormais sa propre icône.",
+    "nl": "Flow-kaarten voor de klep- en papieralarmen, die er geen hadden. Capability-titels die van de printer komen worden nu begrensd zodat een lange niet meer uit zijn rij loopt, percentages zijn vertaald, en de driver heeft een eigen icoon."
   }
 }
