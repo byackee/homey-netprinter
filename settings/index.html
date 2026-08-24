@@ -103,7 +103,12 @@
       if (!supplies || !supplies.length) return '';
       let html = '<table>';
       for (const supply of supplies) {
-        const width = (supply.percent === null || supply.percent === undefined) ? 0 : supply.percent;
+        // Coerced, not trusted. Every other value on this page goes through
+        // esc() because it came from a printer; this one is built into a style
+        // attribute instead, where escaping would not help. It is provably a
+        // number today — supplyPercent() clamps it — and this keeps it one if
+        // that ever stops being true.
+        const width = Math.max(0, Math.min(100, Number(supply.percent) || 0));
         html +=
           '<tr><td>' + esc(supply.description || supply.colour) +
           rawLevel(supply) +
