@@ -62,6 +62,16 @@ function toRaw(varbind: snmp.Varbind): Buffer | null {
  * The distinction is the difference between a missing page counter and an
  * offline printer, and getting it wrong costs a user every reading they have.
  */
+/**
+ * How much of a walk this app will hold before deciding it is not a printer.
+ *
+ * A supplies table runs to a few dozen rows and an alert table to a handful;
+ * five thousand rows or two megabytes is orders of magnitude past anything real
+ * while still leaving room for a verbose printer nobody has met yet.
+ */
+const MAX_WALK_ROWS = 5_000;
+const MAX_WALK_BYTES = 2_000_000;
+
 export function isMissingOidError(message: string): boolean {
   return /NoSuchName/i.test(message);
 }
@@ -197,6 +207,8 @@ export class SnmpClient {
   async walk(rootOid: string, maxRepetitions = 20): Promise<Map<string, SnmpValue>> {
     const session = this.openSession();
     const out = new Map<string, SnmpValue>();
+    let bytes = 0;
+    let stopped = false;
 
     try {
       await new Promise<void>((resolve, reject) => {
@@ -204,11 +216,35 @@ export class SnmpClient {
           rootOid,
           maxRepetitions,
           (varbinds: snmp.Varbind[]) => {
+            if (stopped) return;
+
             for (const vb of varbinds) {
-              if (!snmp.isVarbindError(vb)) out.set(vb.oid, toValue(vb));
+              if (snmp.isVarbindError(vb)) continue;
+              const value = toValue(vb);
+              out.set(vb.oid, value);
+              bytes += vb.oid.length + (typeof value === 'string' ? value.length : 8);
+            }
+
+            // A walk ends when the agent returns an OID outside the subtree, so
+            // the thing answering decides when we stop. That is fine for a
+            // printer and not fine in general: the OID space below any branch is
+            // unbounded, and anything answering on port 161 can keep returning
+            // strictly-increasing OIDs inside it for ever, each carrying a large
+            // OctetString. Twelve of these run concurrently per poll, so an
+            // agent that answers promptly and endlessly would take the heap
+            // without ever tripping the per-request timeout.
+            //
+            // The caps are far above any real printer — the largest table this
+            // app reads is a supplies walk of a few dozen rows — so hitting one
+            // means the answer was not a printer's. What was collected is
+            // returned rather than thrown away, exactly as a missing branch is.
+            if (out.size > MAX_WALK_ROWS || bytes > MAX_WALK_BYTES) {
+              stopped = true;
+              resolve();
             }
           },
           (error?: Error | null) => {
+            if (stopped) return;
             if (error) reject(error);
             else resolve();
           },

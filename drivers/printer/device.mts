@@ -39,6 +39,9 @@ interface PrinterSettings {
  */
 const DEFAULT_FAILURES_BEFORE_UNAVAILABLE = 3;
 
+/** How long one whole read may take before the poll is failed. See withDeadline. */
+const POLL_DEADLINE_MS = 120_000;
+
 export default class PrinterDevice extends Homey.Device {
   private reader!: PrinterReader;
   private timer: NodeJS.Timeout | null = null;
@@ -162,13 +165,45 @@ export default class PrinterDevice extends Homey.Device {
     }
   }
 
+  /**
+   * Fails a read that never finishes, so the schedule cannot be lost.
+   *
+   * Every SNMP timeout in this app is per-request: an agent that answers each
+   * one promptly but never stops answering never trips any of them. That would
+   * be an odd printer rather than an impossible one — and the consequence is
+   * out of all proportion, because `poll()` sets `polling` and the next poll is
+   * chained off this one finishing. A read that never returns therefore does
+   * not just fail; it silently ends the device's polling for the lifetime of
+   * the app, with the tile still showing its last values and nothing anywhere
+   * saying why.
+   *
+   * Generous on purpose: a sleeping printer answering twelve walks over a slow
+   * link is normal, and this is a backstop, not a latency budget.
+   */
+  private async withDeadline<T>(work: Promise<T>): Promise<T> {
+    let timer: NodeJS.Timeout | null = null;
+    try {
+      return await Promise.race([
+        work,
+        new Promise<never>((_, reject) => {
+          timer = this.homey.setTimeout(
+            () => reject(new Error(`No complete answer within ${POLL_DEADLINE_MS / 1000}s`)),
+            POLL_DEADLINE_MS,
+          );
+        }),
+      ]);
+    } finally {
+      if (timer !== null) this.homey.clearTimeout(timer);
+    }
+  }
+
   /** Reads the printer and writes the result to Homey. Never throws. */
   private async poll(): Promise<void> {
     if (this.polling) return;
     this.polling = true;
 
     try {
-      const snapshot = await this.reader.read();
+      const snapshot = await this.withDeadline(this.reader.read());
       this.consecutiveFailures = 0;
       if (!this.getAvailable()) await this.setAvailable();
       await this.applySnapshot(snapshot);
