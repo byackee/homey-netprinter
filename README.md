@@ -26,7 +26,9 @@ The manufacturer is detected from `sysObjectID` and used only to name the device
 | Printer-error alarm | `hrPrinterDetectedErrorState`, blocking flags only |
 
 The number of supplies is discovered, never assumed: a four-cartridge office printer
-and a nine-cartridge photo printer both work without a code change.
+and a nine-cartridge photo printer both work without a code change. Since 1.1.0 there
+is no ceiling on it either — each level is a sub-capability rather than one of a fixed
+set of slots.
 
 All of it comes from the standard Printer MIB, which is why one driver serves every
 brand. The one known gap is Brother, which leaves the standard supply table at 0 or
@@ -108,6 +110,20 @@ npx tsc -p tsconfig.tools.json && node .toolsbuild/tools/probe.mjs 192.168.1.50 
 - **Printer-MIB levels of -1, -2 and -3 are sentinels**, not quantities. They mean
   other, unknown and some-remaining. Rendering them as numbers puts "-2 %" in the
   UI; rendering them as 0 raises a false empty-cartridge alarm.
+- **Levels are sub-capabilities: `measure_supply.black`, `measure_part.1_5`.** Before
+  1.1.0 each was a capability of its own, twenty-two definitions differing only by a
+  title, with eight numbered slots for supplies the printer gave no colour — and a
+  laser reporting a ninth had it dropped while the low-supply alarm still counted it.
+  Three base capabilities rather than one because `icon` belongs to a capability's
+  definition and is not a capability option, so every sub-capability wears its base's
+  icon; a waste bottle showing the black cartridge's ink drop loses what the icon is
+  for. The `measure_` prefix is what lets a user pick a level as the indicator beside
+  the device icon — Homey offers only `measure_`- and `meter_`-prefixed ids there.
+- **A sub-capability's id is a permanent Insights key, so it must not renumber.**
+  `Supply.index` is the printer's own table index, not a position in our list, because
+  a position shifts the day a printer starts reporting one more consumable and would
+  move one part's graph onto another. It is dotted in the MIB, and a second dot would
+  break Homey's base-id lookup, so it is sanitised to `1_5`.
 - **`removeCapability` destroys that capability's Insights history**, and adding
   it back does not restore it. A printer waking from sleep can answer some OIDs
   and not others, so removal must never be driven by a thin poll — the app only

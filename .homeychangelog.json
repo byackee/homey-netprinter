@@ -98,5 +98,10 @@
     "en": "Flow cards for the cover and paper alarms, which had none. Capability titles taken from the printer are now bounded so a long one cannot overflow its row, percentages are translated, and the driver has an icon of its own.",
     "fr": "Des cartes Flow pour les alarmes de capot et de papier, qui n’en avaient aucune. Les titres de capacité repris de l’imprimante sont bornés pour ne plus déborder de leur ligne, les pourcentages sont traduits, et le driver a désormais sa propre icône.",
     "nl": "Flow-kaarten voor de klep- en papieralarmen, die er geen hadden. Capability-titels die van de printer komen worden nu begrensd zodat een lange niet meer uit zijn rij loopt, percentages zijn vertaald, en de driver heeft een eigen icoon."
+  },
+  "1.1.0": {
+    "en": "Every consumable now gets a row, however many the printer reports — the old limit of eight unnamed supplies is gone, and so are the four fixed paper trays. Levels can also be shown beside the device icon. Note: this renames every level, so their Insights history restarts and any Flow using one keeps working but is best re-saved.",
+    "fr": "Chaque consommable a désormais sa ligne, quel qu’en soit le nombre : la limite de huit consommables sans nom disparaît, et les quatre bacs à papier fixes aussi. Les niveaux peuvent également s’afficher à côté de l’icône de l’appareil. À noter : tous les niveaux sont renommés, leur historique Insights repart donc de zéro et les Flows qui en utilisent un continuent de fonctionner mais gagnent à être ré-enregistrés.",
+    "nl": "Elk verbruiksartikel krijgt nu een eigen rij, hoeveel de printer er ook meldt — de oude grens van acht naamloze artikelen is weg, net als de vier vaste papierladen. Niveaus kunnen ook naast het apparaaticoon worden getoond. Let op: alle niveaus worden hernoemd, hun Insights-geschiedenis begint dus opnieuw en Flows die er een gebruiken blijven werken maar kun je het beste opnieuw opslaan."
   }
 }

@@ -1,6 +1,12 @@
 import Homey from 'homey';
 
 import { planCapabilities } from '../../lib/capability-map.mjs';
+import {
+  isLegacyCapability,
+  legacyAssignments,
+  resolveCapability,
+} from '../../lib/legacy-capabilities.mjs';
+import { assignSupplyCapabilities, isSupplyCapability } from '../../lib/supply-capabilities.mjs';
 import { PrinterReader, type PrinterSnapshot } from '../../lib/printer-reader.mjs';
 import { SnmpUnreachableError, type SnmpVersion } from '../../lib/snmp-client.mjs';
 
@@ -40,7 +46,13 @@ export default class PrinterDevice extends Homey.Device {
   private lastErrorAlarm = false;
   /** Supplies already below the threshold, so the low trigger fires once per crossing. */
   private lowSupplies = new Set<string>();
-  /** Titles already stored, so a capability is only renamed when it really changes. */
+  /**
+   * Titles already stored, so a capability is only renamed when it really
+   * changes. Keyed on the serialised title rather than the title itself: a
+   * fallback title is a translation object, and a fresh object is never `===`
+   * the previous poll's, which would mean an expensive `setCapabilityOptions`
+   * write every five minutes for ever.
+   */
   private appliedTitles = new Map<string, string>();
   /**
    * The warning this instance last wrote, so it is rewritten only when it changes.
@@ -203,9 +215,9 @@ export default class PrinterDevice extends Homey.Device {
   private async applySnapshot(snapshot: PrinterSnapshot): Promise<void> {
     const plan = planCapabilities(snapshot, this.readSettings().lowThreshold);
 
-    if (plan.dropped.length > 0) {
-      this.log(`No capability slot left for: ${plan.dropped.map((s) => s.description).join(', ')}`);
-    }
+    // Before anything is written, because migration decides what the old rows
+    // become and this is the one poll that still has both lists in hand.
+    await this.migrateLegacyCapabilities(snapshot);
 
     // An empty supplies table means the walk returned nothing, which is a failed
     // read rather than a printer with no cartridges. Every printer has at least one.
@@ -214,14 +226,15 @@ export default class PrinterDevice extends Homey.Device {
     await this.reportLowSupplies(plan.lowSupplies);
 
     // The printer's own wording names the exact cartridge to reorder. Writing it
-    // is persistent, and these titles change only when a cartridge is replaced by
-    // a different type — so it is written on change, not on every poll, which
-    // would otherwise mean a stored write every five minutes forever.
+    // is persistent and the SDK calls it an expensive operation, and these
+    // titles change only when a cartridge is replaced by a different type — so
+    // it is written on change, not on every poll.
     for (const [capability, title] of plan.titles) {
-      if (this.appliedTitles.get(capability) === title) continue;
+      const key = JSON.stringify(title);
+      if (this.appliedTitles.get(capability) === key) continue;
 
       await this.setCapabilityOptions(capability, { title })
-        .then(() => this.appliedTitles.set(capability, title))
+        .then(() => this.appliedTitles.set(capability, key))
         .catch((e: Error) => this.error(`Could not title ${capability}: ${e.message}`));
     }
 
@@ -230,6 +243,53 @@ export default class PrinterDevice extends Homey.Device {
     }
 
     await this.fireTriggers(snapshot, plan.values);
+  }
+
+  /**
+   * Moves a device paired before 1.1.0 onto the sub-capability ids.
+   *
+   * Runs on the first successful poll after the update and then never again,
+   * because it only does anything while old capabilities are still present.
+   *
+   * Two things have to happen in the same pass. The old ids are removed, which
+   * is what actually costs the user something: `removeCapability` destroys that
+   * capability's Insights history and adding it back does not restore it. And
+   * before they go, each one is paired with the id that replaces it, because
+   * that pairing is knowable only here — `supply_other_3` was the third supply
+   * without a colour in the printer's table, and nothing about the string says
+   * which row that was. The map is stored so a Flow saved against the old name
+   * keeps resolving for as long as the device lives.
+   *
+   * Only ever called with a snapshot whose supplies table was actually read: a
+   * printer waking from sleep can answer some OIDs and not others, and pairing
+   * old rows against a thin read would record a wrong map permanently.
+   */
+  private async migrateLegacyCapabilities(snapshot: PrinterSnapshot): Promise<void> {
+    const legacy = this.getCapabilities().filter(isLegacyCapability);
+    if (legacy.length === 0) return;
+    if (snapshot.supplies.length === 0) return;
+
+    const renamed: Record<string, string> = {
+      ...(this.getStoreValue('renamedCapabilities') as Record<string, string> | undefined ?? {}),
+    };
+
+    const before = legacyAssignments(snapshot.supplies);
+    const after = assignSupplyCapabilities(snapshot.supplies);
+    before.forEach((old, i) => {
+      const now = after[i]?.capability;
+      if (old !== null && now !== undefined) renamed[old] = now;
+    });
+
+    await this.setStoreValue('renamedCapabilities', renamed).catch((e: Error) =>
+      this.error(`Could not record the renamed capabilities: ${e.message}`));
+
+    this.log(`Migrating ${legacy.length} capability/ies to sub-capabilities: ${legacy.join(', ')}`);
+
+    for (const capability of legacy) {
+      await this.removeCapability(capability).catch((e: Error) =>
+        this.error(`Could not remove ${capability}: ${e.message}`));
+      this.appliedTitles.delete(capability);
+    }
   }
 
   /**
@@ -274,7 +334,7 @@ export default class PrinterDevice extends Homey.Device {
 
     if (suppliesWereRead) {
       const stale = current.filter((c) =>
-        (c.startsWith('supply_') || c.startsWith('printer_tray_')) && !wanted.includes(c));
+        isSupplyCapability(c) && !wanted.includes(c));
       for (const capability of stale) {
         await this.removeCapability(capability).catch((e: Error) =>
           this.error(`Could not remove ${capability}: ${e.message}`));
@@ -429,10 +489,24 @@ export default class PrinterDevice extends Homey.Device {
     await this.poll();
   }
 
-  /** Exposes the current supply levels to Flow conditions without a second SNMP round trip. */
+  /**
+   * Exposes the current supply levels to Flow conditions without a second SNMP
+   * round trip.
+   *
+   * The id is resolved first, because a Flow written before 1.1.0 still holds
+   * the capability name it was saved with. Reading a missing capability as null
+   * would make the condition answer "not below", so a Flow built to catch a low
+   * cartridge would quietly stop firing rather than fail visibly.
+   */
   supplyLevel(capability: string): number | null {
-    if (!this.hasCapability(capability)) return null;
-    const value = this.getCapabilityValue(capability);
+    const id = resolveCapability(
+      capability,
+      (c) => this.hasCapability(c),
+      this.getStoreValue('renamedCapabilities') as Record<string, string> | undefined ?? {},
+    );
+    if (id === null) return null;
+
+    const value = this.getCapabilityValue(id);
     return typeof value === 'number' ? value : null;
   }
 

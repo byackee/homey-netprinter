@@ -211,7 +211,7 @@ export class PrinterReader {
     indices.sort((a, b) => compareIndex(a, b));
 
     const supplies: Supply[] = [];
-    indices.forEach((index, position) => {
+    indices.forEach((index) => {
       const level = asNumber(levels.get(`${OID.suppliesLevel}.${index}`)) ?? -2;
       const capacity = asNumber(capacities.get(`${OID.suppliesMaxCapacity}.${index}`)) ?? -2;
       const type = decodeSupplyType(asNumber(types.get(`${OID.suppliesType}.${index}`)));
@@ -230,7 +230,7 @@ export class PrinterReader {
       const receptacle = isReceptacle(supplyClass, type);
 
       supplies.push({
-        index: position + 1,
+        index,
         description,
         type,
         colour: classifySupplyColour(description, colorant, type),

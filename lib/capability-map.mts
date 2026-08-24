@@ -7,36 +7,9 @@
 
 import type { PrinterSnapshot } from './printer-reader.mjs';
 import { classifyOutputTray, isCoverOpen, isPaperLow, isTrayLow, summariseAlerts } from './printer-mib.mjs';
-import type { InputTray, Supply, SupplyColour } from './printer-mib.mjs';
-
-/** Supply colours that have a capability of their own. */
-const NAMED_COLOURS: readonly SupplyColour[] = [
-  'black', 'photo_black', 'matte_black', 'grey',
-  'cyan', 'magenta', 'yellow',
-  'light_cyan', 'light_magenta',
-  'red', 'green', 'blue', 'orange',
-  'waste',
-];
-
-/**
- * How many unnamed supplies we can still show before we run out of slots.
- *
- * Four was enough for an inkjet and far too few for a laser: a Lexmark reports
- * toner, photoconductor, waste bottle, fuser, transfer unit and rollers, none of
- * which carries a colour. The ones that overflowed were still counted by the
- * low-supply alarm, so the alarm could fire for a consumable the user had no row
- * for — an alert with nothing to act on. Eight covers every printer we have seen.
- */
-const FALLBACK_SLOTS = 8;
-
-/**
- * How many paper trays get a row of their own.
- *
- * Four covers a printer with a manual feed, a main cassette and two options,
- * which is as far as anything in a house goes. Trays beyond that are still read
- * — they just fold into the paper alarm rather than earning a tile.
- */
-const TRAY_SLOTS = 4;
+import type { InputTray, Supply } from './printer-mib.mjs';
+import { assignSupplyCapabilities, assignTrayCapabilities } from './supply-capabilities.mjs';
+import { colourName, partName, trayName, type Translated } from './supply-titles.mjs';
 
 /**
  * How much of a printer's own wording fits in a capability title.
@@ -87,12 +60,19 @@ export interface CapabilityPlan {
   /** The values to write, one per capability in {@link capabilities}. */
   values: CapabilityValue[];
   /**
-   * Per-capability title overrides, so a slot reads "Black 202/202XL" rather
-   * than a generic "Black". Only set where the printer gave us something better.
+   * Per-capability title overrides, one per level row.
+   *
+   * Every row needs one now. Before 1.1.0 each colour was its own capability
+   * and carried its own translated title, so an override was only worth writing
+   * when the printer offered something better than "Black". One capability with
+   * a sub-capability per colour has a single title between them all, so without
+   * an override every consumable on the device would read "Supply".
+   *
+   * A plain string is the printer's own wording, which no translation of ours
+   * improves on. A translation object is our fallback for a row the printer
+   * left unnamed.
    */
-  titles: Map<string, string>;
-  /** Supplies that could not be shown because every fallback slot was taken. */
-  dropped: Supply[];
+  titles: Map<string, string | Translated>;
   /**
    * Everything currently at or below the threshold — consumables and paper
    * alike — named as the user would recognise it.
@@ -103,47 +83,6 @@ export interface CapabilityPlan {
    * wants to know the tray is empty just as much as the toner.
    */
   lowSupplies: string[];
-}
-
-/**
- * Chooses a capability id for each supply.
- *
- * Two supplies can legitimately share a colour — a wide-format printer with two
- * black cartridges, say. The first claims the named capability and later ones
- * fall back to a numbered slot, because writing both to `supply_black` would
- * make the second silently overwrite the first.
- */
-function assignCapabilities(supplies: Supply[]): {
-  assignments: Array<{ supply: Supply; capability: string }>;
-  dropped: Supply[];
-} {
-  const taken = new Set<string>();
-  const assignments: Array<{ supply: Supply; capability: string }> = [];
-  const dropped: Supply[] = [];
-  let nextFallback = 1;
-
-  for (const supply of supplies) {
-    const named = `supply_${supply.colour}`;
-    if (NAMED_COLOURS.includes(supply.colour) && !taken.has(named)) {
-      taken.add(named);
-      assignments.push({ supply, capability: named });
-      continue;
-    }
-
-    // Either an unnamed colour, or a colour already claimed by an earlier row.
-    while (nextFallback <= FALLBACK_SLOTS && taken.has(`supply_other_${nextFallback}`)) {
-      nextFallback += 1;
-    }
-    if (nextFallback > FALLBACK_SLOTS) {
-      dropped.push(supply);
-      continue;
-    }
-    const fallback = `supply_other_${nextFallback}`;
-    taken.add(fallback);
-    assignments.push({ supply, capability: fallback });
-  }
-
-  return { assignments, dropped };
 }
 
 /**
@@ -201,24 +140,44 @@ export function hasBlockingError(errors: readonly string[]): boolean {
 }
 
 /**
+ * Names one supply row.
+ *
+ * The printer's own description wins wherever there is one: "Black Ink
+ * Cartridge 202/202XL" names the thing to reorder, which is the whole reason we
+ * prefer it to the colour we inferred. Failing that, a colorant is named after
+ * its colour and an unnamed part after its position in the list — never left to
+ * fall back on the capability's own title, which is the same word for all of
+ * them.
+ */
+function supplyTitle(supply: Supply, partPosition: number): string | Translated {
+  const described = shortTitle(supply.description);
+  if (described.length > 0) return described;
+
+  return colourName(supply.colour) ?? partName(partPosition);
+}
+
+/**
  * Builds the full capability plan for a snapshot.
  *
  * @param snapshot   what the last poll returned
  * @param threshold  percentage at or below which the low-supply alarm fires
  */
 export function planCapabilities(snapshot: PrinterSnapshot, threshold: number): CapabilityPlan {
-  const { assignments, dropped } = assignCapabilities(snapshot.supplies);
-
   const capabilities: string[] = [];
   const values: CapabilityValue[] = [];
-  const titles = new Map<string, string>();
+  const titles = new Map<string, string | Translated>();
 
-  for (const { supply, capability } of assignments) {
+  // Every supply the printer reports gets a row. There is no ceiling any more:
+  // each one is a sub-capability, so a laser listing toner, photoconductor,
+  // waste bottle, fuser, transfer unit and rollers is nine rows rather than
+  // eight rows and one consumable silently dropped on the floor.
+  let partPosition = 0;
+  for (const { supply, capability } of assignSupplyCapabilities(snapshot.supplies)) {
+    if (capability.startsWith('measure_part.')) partPosition += 1;
+
     capabilities.push(capability);
     values.push({ id: capability, value: supply.percent });
-    // The printer's own wording names the exact cartridge to buy, which is more
-    // useful at a glance than the colour we inferred from it.
-    if (supply.description) titles.set(capability, shortTitle(supply.description));
+    titles.set(capability, supplyTitle(supply, partPosition));
   }
 
   const addScalar = (id: string, value: CapabilityValue['value']) => {
@@ -228,16 +187,16 @@ export function planCapabilities(snapshot: PrinterSnapshot, threshold: number): 
 
   // Paper trays, before the scalars, so they sit next to the supplies they are
   // conceptually part of rather than below the alarms.
-  snapshot.inputTrays.slice(0, TRAY_SLOTS).forEach((tray, i) => {
-    const id = `printer_tray_${i + 1}`;
-    capabilities.push(id);
-    values.push({ id, value: tray.percent });
+  for (const { tray, capability } of assignTrayCapabilities(snapshot.inputTrays)) {
+    capabilities.push(capability);
+    values.push({ id: capability, value: tray.percent });
 
     // "Tray 2 · A4" is what tells two identical cassettes apart. Either half may
     // be missing, so the separator is only drawn when both are there.
     const label = [tray.name.trim(), tray.media.trim()].filter((s) => s.length > 0).join(' · ');
-    if (label.length > 0) titles.set(id, shortTitle(label));
-  });
+    const position = Number(capability.split('.')[1]);
+    titles.set(capability, label.length > 0 ? shortTitle(label) : trayName(position));
+  }
 
   // We only get here from a successful read, so the printer answered.
   //
@@ -276,7 +235,7 @@ export function planCapabilities(snapshot: PrinterSnapshot, threshold: number): 
   // asserts a condition that may be false; a stale counter only lags a total
   // that was true when it was read, and blanking it would chop up its Insights
   // graph every time the printer declines to answer once.
-  if (snapshot.pageCount !== null) addScalar('printer_pages', snapshot.pageCount);
+  if (snapshot.pageCount !== null) addScalar('meter_pages', snapshot.pageCount);
 
   // The output tray only earns a row on printers that can actually sense it.
   // Showing "Unknown" forever on the rest would be a tile that never says
@@ -303,7 +262,6 @@ export function planCapabilities(snapshot: PrinterSnapshot, threshold: number): 
     capabilities,
     values,
     titles,
-    dropped,
     lowSupplies: [
       ...lowSupplyNames(snapshot.supplies, threshold),
       ...lowTrayNames(snapshot.inputTrays, threshold),

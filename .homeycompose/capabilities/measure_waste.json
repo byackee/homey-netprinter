@@ -1,9 +1,9 @@
 {
   "type": "number",
   "title": {
-    "en": "Cyan",
-    "fr": "Cyan",
-    "nl": "Cyaan"
+    "en": "Waste tank",
+    "fr": "Réservoir usagé",
+    "nl": "Afvalreservoir"
   },
   "uiComponent": "sensor",
   "getable": true,
@@ -17,5 +17,5 @@
   "min": 0,
   "max": 100,
   "decimals": 0,
-  "icon": "/assets/capability/supply_ink.svg"
+  "icon": "/assets/capability/supply_waste.svg"
 }

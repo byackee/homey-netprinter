@@ -19,47 +19,6 @@ mkdirSync(capDir, { recursive: true });
 mkdirSync(iconDir, { recursive: true });
 
 /**
- * Supply colours we give a named capability to, in the order Homey should show
- * them. `icon` picks which of the shapes below the capability wears.
- */
-const SUPPLIES = [
-  { id: 'black',         icon: 'ink', en: 'Black',           fr: 'Noir',            nl: 'Zwart' },
-  { id: 'photo_black',   icon: 'ink', en: 'Photo black',     fr: 'Noir photo',      nl: 'Fotozwart' },
-  { id: 'matte_black',   icon: 'ink', en: 'Matte black',     fr: 'Noir mat',        nl: 'Mat zwart' },
-  { id: 'grey',          icon: 'ink', en: 'Grey',            fr: 'Gris',            nl: 'Grijs' },
-  { id: 'cyan',          icon: 'ink', en: 'Cyan',            fr: 'Cyan',            nl: 'Cyaan' },
-  { id: 'magenta',       icon: 'ink', en: 'Magenta',         fr: 'Magenta',         nl: 'Magenta' },
-  { id: 'yellow',        icon: 'ink', en: 'Yellow',          fr: 'Jaune',           nl: 'Geel' },
-  { id: 'light_cyan',    icon: 'ink', en: 'Light cyan',      fr: 'Cyan clair',      nl: 'Lichtcyaan' },
-  { id: 'light_magenta', icon: 'ink', en: 'Light magenta',   fr: 'Magenta clair',   nl: 'Lichtmagenta' },
-  { id: 'red',           icon: 'ink', en: 'Red',             fr: 'Rouge',           nl: 'Rood' },
-  { id: 'green',         icon: 'ink', en: 'Green',           fr: 'Vert',            nl: 'Groen' },
-  { id: 'blue',          icon: 'ink', en: 'Blue',            fr: 'Bleu',            nl: 'Blauw' },
-  { id: 'orange',        icon: 'ink', en: 'Orange',          fr: 'Orange',          nl: 'Oranje' },
-  // A waste tank is reported as headroom left, so 100 % always means "nothing to do".
-  { id: 'waste',         icon: 'waste', en: 'Waste tank',    fr: 'Réservoir d’encre usée', nl: 'Afvalreservoir' },
-  // Fallbacks for supplies whose colour the printer does not name. A laser fills
-  // most of these on its own: photoconductor, fuser, transfer unit, rollers.
-  { id: 'other_1', icon: 'cartridge', en: 'Supply 1', fr: 'Consommable 1', nl: 'Verbruiksartikel 1' },
-  { id: 'other_2', icon: 'cartridge', en: 'Supply 2', fr: 'Consommable 2', nl: 'Verbruiksartikel 2' },
-  { id: 'other_3', icon: 'cartridge', en: 'Supply 3', fr: 'Consommable 3', nl: 'Verbruiksartikel 3' },
-  { id: 'other_4', icon: 'cartridge', en: 'Supply 4', fr: 'Consommable 4', nl: 'Verbruiksartikel 4' },
-  { id: 'other_5', icon: 'cartridge', en: 'Supply 5', fr: 'Consommable 5', nl: 'Verbruiksartikel 5' },
-  { id: 'other_6', icon: 'cartridge', en: 'Supply 6', fr: 'Consommable 6', nl: 'Verbruiksartikel 6' },
-  { id: 'other_7', icon: 'cartridge', en: 'Supply 7', fr: 'Consommable 7', nl: 'Verbruiksartikel 7' },
-  { id: 'other_8', icon: 'cartridge', en: 'Supply 8', fr: 'Consommable 8', nl: 'Verbruiksartikel 8' },
-];
-
-/** Paper trays. The device renames each one after what the printer calls it. */
-const TRAYS = [1, 2, 3, 4].map((n) => ({
-  id: `tray_${n}`,
-  icon: 'tray',
-  en: `Tray ${n}`,
-  fr: `Bac ${n}`,
-  nl: `Lade ${n}`,
-}));
-
-/**
  * Every capability icon, as a filled path with no stroke anywhere.
  *
  * This is not a style choice. The web app renders real SVG; the mobile app does
@@ -147,7 +106,13 @@ for (const [file, shape] of Object.entries(ICON_FILES)) {
   writeFileSync(join(iconDir, `${file}.svg`), `${svg}\n`);
 }
 
-/** A percentage capability, which is what both supplies and trays are. */
+/**
+ * A percentage capability, which is what supplies and trays both are.
+ *
+ * One definition now covers many rows: each supply is a sub-capability of one
+ * of these, so the title here is only ever the fallback Homey shows before the
+ * device renames the row after what the printer calls it.
+ */
 function levelCapability({ en, fr, nl }, icon) {
   return {
     type: 'number',
@@ -167,21 +132,43 @@ function levelCapability({ en, fr, nl }, icon) {
   };
 }
 
-for (const supply of SUPPLIES) {
+/**
+ * The level capabilities, one per kind of thing rather than one per colour.
+ *
+ * Three for consumables rather than one, because `icon` belongs to a
+ * capability's definition and is not a capability option: every sub-capability
+ * wears its base's icon, so a waste bottle and a fuser sharing the ink drop of
+ * the black cartridge would lose what the icon is there to say.
+ */
+const LEVELS = {
+  measure_supply: [{ en: 'Supply', fr: 'Consommable', nl: 'Verbruiksartikel' }, 'supply_ink'],
+  measure_waste: [{ en: 'Waste tank', fr: 'Réservoir usagé', nl: 'Afvalreservoir' }, 'supply_waste'],
+  measure_part: [{ en: 'Part', fr: 'Pièce', nl: 'Onderdeel' }, 'supply_cartridge'],
+  measure_tray: [{ en: 'Tray', fr: 'Bac', nl: 'Lade' }, 'printer_tray'],
+};
+
+for (const [id, [names, icon]] of Object.entries(LEVELS)) {
   writeFileSync(
-    join(capDir, `supply_${supply.id}.json`),
-    `${JSON.stringify(levelCapability(supply, `supply_${supply.icon}`), null, 2)}\n`,
+    join(capDir, `${id}.json`),
+    `${JSON.stringify(levelCapability(names, icon), null, 2)}\n`,
   );
 }
 
-for (const tray of TRAYS) {
-  writeFileSync(
-    join(capDir, `printer_${tray.id}.json`),
-    `${JSON.stringify(levelCapability(tray, `printer_${tray.icon}`), null, 2)}\n`,
-  );
-}
-
-console.log(
-  `wrote ${SUPPLIES.length} supply and ${TRAYS.length} tray capabilities, `
-  + `and ${Object.keys(ICON_FILES).length} icons`,
+/** The lifetime page counter. `meter_` so a user can pick it as the device indicator. */
+writeFileSync(
+  join(capDir, 'meter_pages.json'),
+  `${JSON.stringify({
+    type: 'number',
+    title: { en: 'Pages printed', fr: 'Pages imprimées', nl: 'Pagina\u2019s afgedrukt' },
+    uiComponent: 'sensor',
+    getable: true,
+    setable: false,
+    insights: true,
+    units: { en: 'pages', fr: 'pages', nl: "pagina's" },
+    min: 0,
+    decimals: 0,
+    icon: '/assets/capability/printer_pages.svg',
+  }, null, 2)}\n`,
 );
+
+console.log(`wrote ${Object.keys(LEVELS).length + 1} level capabilities and ${Object.keys(ICON_FILES).length} icons`);

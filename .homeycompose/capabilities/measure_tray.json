@@ -1,9 +1,9 @@
 {
   "type": "number",
   "title": {
-    "en": "Supply 3",
-    "fr": "Consommable 3",
-    "nl": "Verbruiksartikel 3"
+    "en": "Tray",
+    "fr": "Bac",
+    "nl": "Lade"
   },
   "uiComponent": "sensor",
   "getable": true,
@@ -17,5 +17,5 @@
   "min": 0,
   "max": 100,
   "decimals": 0,
-  "icon": "/assets/capability/supply_cartridge.svg"
+  "icon": "/assets/capability/printer_tray.svg"
 }

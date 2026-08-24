@@ -1,6 +1,7 @@
 import Homey from 'homey';
 
 import type NetworkPrinterApp from '../../app.mjs';
+import { isSupplyCapability } from '../../lib/supply-capabilities.mjs';
 import { PrinterReader } from '../../lib/printer-reader.mjs';
 import { negotiateVersion, type SnmpVersion } from '../../lib/snmp-client.mjs';
 import { scanSubnet, subnetOf } from '../../lib/network-scan.mjs';
@@ -95,7 +96,7 @@ export default class PrinterDriver extends Homey.Driver {
         const wanted = query.toLowerCase();
         return args.device
           .getCapabilities()
-          .filter((c) => c.startsWith('supply_') || c.startsWith('printer_tray_'))
+          .filter((c) => isSupplyCapability(c))
           .map((id) => ({ id, name: this.capabilityLabel(args.device, id) }))
           .filter((item) => item.name.toLowerCase().includes(wanted));
       });

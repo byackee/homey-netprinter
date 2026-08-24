@@ -174,8 +174,16 @@ export const LEVEL_SOME_REMAINING = -3;
 
 /** One decoded row of prtMarkerSuppliesTable. */
 export interface Supply {
-  /** The row index within the table, stable for a given printer. */
-  index: number;
+  /**
+   * The printer's own row index, e.g. "1.3" for supply 3 of device 1.
+   *
+   * The table index rather than a position in our list, because since 1.1.0 it
+   * names the sub-capability this supply is written to, and that name is the
+   * key its Insights history hangs on. A position renumbers the moment a
+   * printer starts reporting one more consumable than it used to, which would
+   * silently move one part's graph onto another. The MIB index does not.
+   */
+  index: string;
   /** prtMarkerSuppliesDescription, e.g. "Black Ink Cartridge 202/202XL". */
   description: string;
   /** A {@link SUPPLY_TYPE} name. */

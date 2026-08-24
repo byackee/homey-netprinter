@@ -11,9 +11,16 @@ import {
 import type { InputTray, Supply, SupplyColour } from '../lib/printer-mib.mjs';
 import type { PrinterSnapshot } from '../lib/printer-reader.mjs';
 
-function supply(colour: SupplyColour, percent: number | null, description = ''): Supply {
+function supply(
+  colour: SupplyColour,
+  percent: number | null,
+  description = '',
+  // The printer's own table index, which names the sub-capability for anything
+  // without a colour. Distinct per row, exactly as a real printer reports it.
+  index = '1.1',
+): Supply {
   return {
-    index: 1,
+    index,
     description,
     type: colour === 'waste' ? 'wasteInk' : 'inkCartridge',
     colour,
@@ -75,10 +82,10 @@ describe('planCapabilities', () => {
     );
 
     assert.deepEqual(plan.capabilities.slice(0, 5), [
-      'supply_photo_black', 'supply_black', 'supply_cyan', 'supply_magenta', 'supply_yellow',
+      'measure_supply.photo_black', 'measure_supply.black', 'measure_supply.cyan',
+      'measure_supply.magenta', 'measure_supply.yellow',
     ]);
     assert.equal(plan.values[1]?.value, 20);
-    assert.equal(plan.dropped.length, 0);
   });
 
   it('names each slot after the cartridge the printer asks for', () => {
@@ -86,36 +93,51 @@ describe('planCapabilities', () => {
       snapshot({ supplies: [supply('black', 20, 'Black Ink Cartridge 202/202XL')] }),
       15,
     );
-    assert.equal(plan.titles.get('supply_black'), 'Black Ink Cartridge 202/202XL');
+    assert.equal(plan.titles.get('measure_supply.black'), 'Black Ink Cartridge 202/202XL');
   });
 
-  it('moves a second supply of the same colour to a numbered slot', () => {
-    // Two black cartridges must not both write to supply_black, or the second
-    // would silently overwrite the first and one of them would vanish.
+  it('keeps a second supply of the same colour off the first one', () => {
+    // Two black cartridges must not both write to measure_supply.black, or the
+    // second would silently overwrite the first and one of them would vanish.
     const plan = planCapabilities(
-      snapshot({ supplies: [supply('black', 80, 'Black A'), supply('black', 10, 'Black B')] }),
+      snapshot({
+        supplies: [
+          supply('black', 80, 'Black A', '1.1'),
+          supply('black', 10, 'Black B', '1.2'),
+        ],
+      }),
       15,
     );
 
-    assert.deepEqual(plan.capabilities.slice(0, 2), ['supply_black', 'supply_other_1']);
+    assert.deepEqual(plan.capabilities.slice(0, 2), [
+      'measure_supply.black', 'measure_supply.black_1_2',
+    ]);
     assert.equal(plan.values[0]?.value, 80);
     assert.equal(plan.values[1]?.value, 10);
   });
 
-  it('routes unnamed colours to numbered slots in order', () => {
+  it('puts an unnamed part on its own row, keyed by the printer\u2019s index', () => {
     const plan = planCapabilities(
-      snapshot({ supplies: [supply('other', 90, 'Fuser'), supply('other', 40, 'Drum')] }),
+      snapshot({
+        supplies: [
+          supply('other', 90, 'Fuser', '1.4'),
+          supply('other', 40, 'Drum', '1.7'),
+        ],
+      }),
       15,
     );
-    assert.deepEqual(plan.capabilities.slice(0, 2), ['supply_other_1', 'supply_other_2']);
+    assert.deepEqual(plan.capabilities.slice(0, 2), ['measure_part.1_4', 'measure_part.1_7']);
   });
 
-  it('reports supplies it had no slot left for instead of dropping them silently', () => {
-    const many = Array.from({ length: 10 }, (_, i) => supply('other', 50, `Unit ${i}`));
+  it('has no ceiling: every supply gets a row, however many there are', () => {
+    // The whole reason for the change. Eight numbered slots meant a printer
+    // reporting a ninth consumable had it dropped on the floor — while the
+    // low-supply alarm still counted it, so the alarm could fire for a part the
+    // user had no row for.
+    const many = Array.from({ length: 20 }, (_, i) => supply('other', 50, `Unit ${i}`, `1.${i + 1}`));
     const plan = planCapabilities(snapshot({ supplies: many }), 15);
 
-    assert.equal(plan.capabilities.filter((c) => c.startsWith('supply_other_')).length, 8);
-    assert.equal(plan.dropped.length, 2);
+    assert.equal(plan.capabilities.filter((c) => c.startsWith('measure_part.')).length, 20);
   });
 
   it('gives a laser its whole maintenance kit a row each', () => {
@@ -133,7 +155,7 @@ describe('planCapabilities', () => {
     ];
     const plan = planCapabilities(snapshot({ supplies: lexmark }), 15);
 
-    assert.equal(plan.dropped.length, 0);
+    assert.equal(plan.capabilities.filter((c) => c.startsWith('measure_')).length, 7);
     assert.deepEqual(plan.lowSupplies, ['Maintenance Kit']);
   });
 
@@ -143,11 +165,11 @@ describe('planCapabilities', () => {
       15,
     );
 
-    assert.deepEqual(plan.capabilities.slice(0, 2), ['printer_tray_1', 'printer_tray_2']);
+    assert.deepEqual(plan.capabilities.slice(0, 2), ['measure_tray.1', 'measure_tray.2']);
     assert.equal(plan.values[0]?.value, 80);
-    assert.equal(plan.titles.get('printer_tray_1'), 'Tray 1 · A4');
+    assert.equal(plan.titles.get('measure_tray.1'), 'Tray 1 · A4');
     // No media name means no separator dangling off the end of the title.
-    assert.equal(plan.titles.get('printer_tray_2'), 'Multipurpose Feeder');
+    assert.equal(plan.titles.get('measure_tray.2'), 'Multipurpose Feeder');
   });
 
   it('raises the paper alarm from the printer, not only from a level', () => {
@@ -265,9 +287,9 @@ describe('the Lexmark C3326dw that reported this', () => {
   /** Every row exactly as the printer's own diagnostics showed it. */
   function c3326dw(): PrinterSnapshot {
     const impressions = (
-      description: string, colour: SupplyColour, level: number, max: number,
+      description: string, colour: SupplyColour, level: number, max: number, index = '1.1',
     ): Supply => ({
-      index: 1,
+      index,
       description,
       type: colour === 'waste' ? 'wasteToner' : 'toner',
       colour,
@@ -303,7 +325,7 @@ describe('the Lexmark C3326dw that reported this', () => {
 
   it('leaves the waste bottle at 100 %, because it is new', () => {
     const plan = planCapabilities(c3326dw(), 15);
-    assert.equal(plan.values.find((v) => v.id === 'supply_waste')?.value, 100);
+    assert.equal(plan.values.find((v) => v.id.startsWith('measure_waste.'))?.value, 100);
   });
 
   it('raises neither alarm on a printer with nothing wrong', () => {
@@ -405,6 +427,6 @@ describe('shortTitle', () => {
     const plan = planCapabilities(snapshot({
       supplies: [supply('cyan', 50, 'Lexmark C3326 Cyan Toner Cartridge High Yield')],
     }), 15);
-    assert.equal(plan.titles.get('supply_cyan'), 'Lexmark C3326 Cyan Toner');
+    assert.equal(plan.titles.get('measure_supply.cyan'), 'Lexmark C3326 Cyan Toner');
   });
 });
