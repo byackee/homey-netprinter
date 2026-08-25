@@ -31,10 +31,19 @@ is no ceiling on it either — each level is a sub-capability rather than one of
 set of slots.
 
 All of it comes from the standard Printer MIB, which is why one driver serves every
-brand. The one known gap is Brother, which leaves the standard supply table at 0 or
-100 and puts the real percentages in a private, reverse-engineered OctetString —
-implementing that without a Brother on hand would mean guessing at levels, which is
-worse than reporting none.
+brand. The one known gap is Brother's toner level, and the shape of that gap was
+wrong here until a user posted his printer's actual answers.
+
+It is not, as this said before, that Brother fills the standard table with a flat 0
+or 100. An MFC-L2827DW answers `-3 / -2 tenthsOfGrams` for its toner — the
+Printer-MIB's way of saying "there is some left and I will not put a number on it" —
+which the app renders honestly as *some left*. Everything else that printer reports
+is read correctly, drum life included, and matches what Home Assistant shows for the
+same machine to the page.
+
+The number does exist: Home Assistant reads that toner at 92 % from Brother's private
+OIDs. Reading those is the open work, and it waits on a walk from a real Brother
+rather than on a guess — a made-up toner level is worse than none.
 
 ### Finding a printer
 
