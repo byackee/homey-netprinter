@@ -130,6 +130,7 @@ describe('every row the app can produce resolves to a real capability', () => {
       covers: [{ description: 'Front Door', open: false }],
       alerts: [],
       alertsRead: true,
+      vendor: null,
     }, 15);
 
     assert.ok(plan.capabilities.length > 10, 'the fixture should exercise a lot of rows');

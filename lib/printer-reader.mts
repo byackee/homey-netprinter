@@ -30,6 +30,13 @@ import {
   type PrinterStatus,
   type Supply,
 } from './printer-mib.mjs';
+import {
+  BROTHER_ENTERPRISE,
+  printerKindFrom,
+  readBrother,
+  vendorPercentFor,
+  type BrotherReading,
+} from './vendors/brother.mjs';
 
 /** Everything one poll can learn about a printer. */
 export interface PrinterSnapshot {
@@ -65,6 +72,28 @@ export interface PrinterSnapshot {
    * screen. Same reasoning as the supplies table in syncCapabilities.
    */
   alertsRead: boolean;
+  /**
+   * What the manufacturer's private branch added, when one was consulted.
+   *
+   * Null on every printer whose standard table answered in full, which is nearly
+   * all of them. Kept on the snapshot rather than folded silently into the
+   * supplies so the settings page can show a user exactly which numbers came
+   * from where — the same reason {@link Supply.level} is carried raw.
+   */
+  vendor: VendorReading | null;
+}
+
+/** A manufacturer-specific read, alongside the standard one rather than instead of it. */
+export interface VendorReading {
+  /** The brand whose private branch answered, e.g. "Brother". */
+  vendor: string;
+  /** Model as the private branch reports it, when it differs from the standard one. */
+  model: string | null;
+  firmware: string | null;
+  /** Every decoded value, named as Home Assistant names it, for comparison. */
+  values: Array<{ key: string; value: number; isPercent: boolean }>;
+  /** Which supply rows this read filled in, by table index. */
+  filled: string[];
 }
 
 /** Identity fields, read once during pairing. */
@@ -159,12 +188,18 @@ export class PrinterReader {
     ]);
 
     const rawError = errorRaw.get(OID.hrPrinterDetectedErrorState);
+    const enterprise = enterpriseNumber(asString(scalars.get(OID.sysObjectID)));
+
+    // Only Brother, only when the standard table left a hole, and only ever
+    // after the standard read has already succeeded. A vendor extra that fails
+    // must cost the poll nothing.
+    const vendor = await this.readVendor(enterprise, supplies).catch(() => null);
 
     return {
       model: asString(scalars.get(OID.hrDeviceDescr)) ?? asString(scalars.get(OID.prtGeneralPrinterName)),
       name: asString(scalars.get(OID.sysName)),
       serial: asString(scalars.get(OID.prtGeneralSerialNumber)),
-      enterprise: enterpriseNumber(asString(scalars.get(OID.sysObjectID))),
+      enterprise,
       status: resolveStatus(
         decodePrinterStatus(asNumber(scalars.get(OID.hrPrinterStatus))),
         asNumber(scalars.get(OID.hrDeviceStatus)),
@@ -178,6 +213,56 @@ export class PrinterReader {
       covers,
       alerts: alerts.rows,
       alertsRead: alerts.ok,
+      vendor,
+    };
+  }
+
+  /**
+   * Fills supply rows the standard table refused to number, from the vendor's
+   * own branch.
+   *
+   * Mutates `supplies` in place, which is the honest shape here: the caller's
+   * rows are the ones a user sees, and a copy would leave two versions of the
+   * truth in one snapshot. Returns what it did, so the settings page can say so.
+   *
+   * Returns null the moment there is nothing to do — an unrecognised brand, or a
+   * table that answered every row. That short-circuit matters: it is what keeps
+   * this off the hot path for every printer that does not need it, which since
+   * the standard read already works is almost all of them.
+   */
+  private async readVendor(
+    enterprise: number | null,
+    supplies: Supply[],
+  ): Promise<VendorReading | null> {
+    if (enterprise !== BROTHER_ENTERPRISE) return null;
+    if (!supplies.some((s) => s.percent === null)) return null;
+
+    const kind = printerKindFrom(supplies.map((s) => s.type));
+    const reading: BrotherReading = await readBrother(this.client, kind);
+
+    const filled: string[] = [];
+    for (const supply of supplies) {
+      const percent = vendorPercentFor(supply, supplies, reading.maintenance, kind);
+      if (percent === null) continue;
+      supply.percent = percent;
+      supply.vendorSourced = true;
+      // `someRemaining` and `level` keep the -3 the printer actually sent. They
+      // are the record of what the standard table said, and a number arriving
+      // from somewhere else does not change that; every consumer already prefers
+      // a percentage when there is one.
+      filled.push(supply.index);
+    }
+
+    return {
+      vendor: 'Brother',
+      model: reading.model,
+      firmware: reading.firmware,
+      values: [...reading.maintenance, ...reading.nextcare, ...reading.counters].map((v) => ({
+        key: v.key,
+        value: v.value,
+        isPercent: v.isPercent,
+      })),
+      filled,
     };
   }
 

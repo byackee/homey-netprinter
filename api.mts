@@ -14,9 +14,15 @@ import type PrinterDevice from './drivers/printer/device.mjs';
 
 import { PrinterReader } from './lib/printer-reader.mjs';
 import { INPUT_SHEETS_REMAINING, classifyOutputTray } from './lib/printer-mib.mjs';
-import { negotiateVersion } from './lib/snmp-client.mjs';
+import { SnmpClient, negotiateVersion } from './lib/snmp-client.mjs';
 import { subnetOf } from './lib/network-scan.mjs';
 import { vendorName } from './lib/vendors.mjs';
+import {
+  BROTHER_ENTERPRISE,
+  BROTHER_OIDS,
+  decodeBrotherReading,
+  printerKindFrom,
+} from './lib/vendors/brother.mjs';
 
 /**
  * A Homey API call is cut off after ten seconds. Every endpoint here has to
@@ -64,6 +70,8 @@ interface DeviceReport {
       receptacle: boolean;
       /** The printer says there is some left but will not put a number on it. */
       someRemaining: boolean;
+      /** The percentage came from the manufacturer's private branch, not the standard table. */
+      vendorSourced: boolean;
     }>;
     trays: Array<{
       name: string;
@@ -154,6 +162,7 @@ async function getDiagnostics({ homey }: Request): Promise<{
             supplyClass: s.supplyClass,
             receptacle: s.isReceptacle,
             someRemaining: s.someRemaining,
+            vendorSourced: s.vendorSourced === true,
           })),
           trays: snapshot.inputTrays.map((t) => ({
             name: t.name,
@@ -292,7 +301,126 @@ async function getTrace({ homey }: Request): Promise<{
 }
 
 /**
+ * Dumps what one printer answers on its manufacturer's private branch, as text
+ * a user can copy into a bug report.
+ *
+ * This endpoint exists because of how the last gap was actually diagnosed. The
+ * only way to see a private OID was to ask the owner to install a command-line
+ * SNMP tool, work out the argument syntax for their platform, and screenshot
+ * pages of output — and what came back was the wrong pages, through no fault of
+ * theirs. A button that reads the same thing from Homey, on the network the
+ * printer is already on, removes every one of those steps.
+ *
+ * It is deliberately not a walk. A walk of a vendor branch runs to thousands of
+ * rows, would not finish inside the ten seconds a Homey API call gets, and
+ * buries the six values that matter. Reading the OIDs we know by name answers in
+ * one round trip, and an OID nobody knows about is not something a longer dump
+ * would have identified anyway.
+ */
+async function postDump({ body }: Request): Promise<{
+  ok: boolean;
+  message?: string;
+  text?: string;
+}> {
+  const host = String(body.host ?? '').trim();
+  const community = String(body.community ?? 'public').trim() || 'public';
+
+  if (!host) return { ok: false, message: 'Enter an IP address.' };
+
+  const version = await negotiateVersion(host, community, API_READ_TIMEOUT_MS);
+  if (version === null) {
+    return { ok: false, message: `No SNMP answer from ${host} on v2c or v1.` };
+  }
+
+  const reader = new PrinterReader(host, community, version, API_READ_TIMEOUT_MS);
+  const identity = await reader.readIdentity();
+  const vendor = vendorName(identity.enterprise);
+
+  const lines: string[] = [
+    `# ${[vendor, identity.model].filter(Boolean).join(' ') || host}`,
+    `host        ${host}`,
+    `snmp        ${version}, community "${community}"`,
+    `sysObjectID enterprise ${identity.enterprise ?? 'unknown'}${vendor ? ` (${vendor})` : ''}`,
+    `serial      ${identity.serial ?? '—'}`,
+    '',
+  ];
+
+  // The standard table first, always. It is the reading the app actually
+  // depends on, and a report that shows only the vendor branch cannot say
+  // whether the vendor branch was needed.
+  const snapshot = await reader.read();
+  lines.push('## prtMarkerSuppliesTable (the standard read)');
+  if (snapshot.supplies.length === 0) {
+    lines.push('(no rows — this printer reports no supplies table)');
+  }
+  for (const supply of snapshot.supplies) {
+    const percent = supply.percent === null ? 'no number' : `${supply.percent} %`;
+    lines.push(
+      `[${supply.index}] ${supply.description || supply.colour}`,
+      `      level ${supply.level} / ${supply.maxCapacity} ${supply.unit}` +
+        ` · type ${supply.type} · class ${supply.supplyClass ?? '—'} → ${percent}` +
+        (supply.vendorSourced ? ' (from the vendor branch)' : ''),
+    );
+  }
+  lines.push('');
+
+  if (identity.enterprise !== BROTHER_ENTERPRISE) {
+    lines.push(
+      `## private branch`,
+      vendor
+        ? `No private OIDs are known for ${vendor}. Everything above comes from the`
+        : 'This printer reports no manufacturer we recognise. Everything above comes from the',
+      'standard Printer-MIB, which is all this app reads for this brand.',
+    );
+    return { ok: true, text: lines.join('\n') };
+  }
+
+  // Raw bytes as well as decoded values. The decode is only as good as the map
+  // behind it, and a marker this app has no name for is invisible once decoded —
+  // so the hex has to survive into the report, or the next unknown supply is
+  // undiagnosable from it.
+  const client = new SnmpClient({ host, community, version, timeout: API_READ_TIMEOUT_MS });
+  const kind = printerKindFrom(snapshot.supplies.map((s) => s.type));
+  const raw = await client.get([...BROTHER_OIDS], true);
+  const decoded = decodeBrotherReading(raw, kind);
+
+  lines.push('## Brother private branch, raw');
+  for (const oid of BROTHER_OIDS) {
+    const value = raw.get(oid);
+    lines.push(
+      `${oid}`,
+      `      ${Buffer.isBuffer(value) ? value.toString('hex') : '(no answer)'}`,
+    );
+  }
+
+  lines.push(
+    '',
+    '## Brother private branch, decoded',
+    `model     ${decoded.model ?? '—'}`,
+    `firmware  ${decoded.firmware ?? '—'}`,
+    `layout    ${decoded.legacy ? 'legacy (five-byte entries)' : 'current (seven-byte entries)'}`,
+    `read as   ${kind}`,
+    '',
+  );
+
+  const groups: Array<[string, typeof decoded.maintenance]> = [
+    ['maintenance', decoded.maintenance],
+    ['nextcare', decoded.nextcare],
+    ['counters', decoded.counters],
+  ];
+  for (const [name, values] of groups) {
+    lines.push(`${name}:`);
+    if (values.length === 0) lines.push('      (nothing decoded)');
+    for (const v of values) {
+      lines.push(`      ${v.marker}  ${v.key} = ${v.value}${v.isPercent ? ' %' : ''}`);
+    }
+  }
+
+  return { ok: true, text: lines.join('\n') };
+}
+
+/**
  * Homey resolves endpoints off the default export, keyed by the names declared
  * in `.homeycompose/app.json`.
  */
-export default { getDiagnostics, getScan, postScan, postTest, getTrace };
+export default { getDiagnostics, getScan, postScan, postTest, getTrace, postDump };

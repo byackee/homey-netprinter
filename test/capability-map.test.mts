@@ -62,6 +62,7 @@ function snapshot(overrides: Partial<PrinterSnapshot> = {}): PrinterSnapshot {
     covers: [],
     alerts: [],
     alertsRead: true,
+    vendor: null,
     ...overrides,
   };
 }

@@ -219,6 +219,18 @@ export interface Supply {
    * is invisible in {@link Supply.isReceptacle} and obvious here.
    */
   supplyClass: number | null;
+  /**
+   * True when {@link Supply.percent} came from the manufacturer's private branch
+   * rather than from prtMarkerSuppliesTable.
+   *
+   * Recorded because the two are not equally trustworthy and a user deserves to
+   * know which one they are looking at. A standard reading is one this app can
+   * defend from the RFC; a vendor reading is one it can only defend from having
+   * seen it work. The settings page says so, and {@link Supply.level} still
+   * holds whatever the standard table actually sent — normally the `-3` that
+   * made the vendor read necessary.
+   */
+  vendorSourced?: boolean;
 }
 
 /**
