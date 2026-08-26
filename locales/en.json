@@ -52,6 +52,12 @@
     "stored_status": "device still holds status",
     "some_left": "some left",
     "last_poll": "Last read",
-    "never_polled": "Never read by the device yet"
+    "never_polled": "Never read by the device yet",
+    "dump": "Report what a printer answers",
+    "dump_hint": "Reads the address above and produces a report you can paste into the support topic. Use it when a level shows as unknown or as “some left”: it includes the manufacturer’s own values, which the standard read does not always carry.",
+    "dump_button": "Produce report",
+    "dumping": "Reading the printer…",
+    "dump_copy": "Copy",
+    "dump_copied": "Copied"
   }
 }

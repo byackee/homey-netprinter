@@ -52,6 +52,12 @@
     "stored_status": "l’appareil retient encore l’état",
     "some_left": "il en reste",
     "last_poll": "Dernier relevé",
-    "never_polled": "Jamais relevé par l’appareil"
+    "never_polled": "Jamais relevé par l’appareil",
+    "dump": "Rapporter ce que répond une imprimante",
+    "dump_hint": "Interroge l’adresse ci-dessus et produit un rapport à coller dans le sujet d’entraide. À utiliser quand un niveau s’affiche comme inconnu ou « il en reste » : il inclut les valeurs propres au constructeur, que la lecture standard ne porte pas toujours.",
+    "dump_button": "Produire le rapport",
+    "dumping": "Lecture de l’imprimante…",
+    "dump_copy": "Copier",
+    "dump_copied": "Copié"
   }
 }

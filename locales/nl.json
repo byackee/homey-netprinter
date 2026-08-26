@@ -52,6 +52,12 @@
     "stored_status": "apparaat houdt nog status vast",
     "some_left": "nog wat over",
     "last_poll": "Laatste meting",
-    "never_polled": "Nog nooit door het apparaat uitgelezen"
+    "never_polled": "Nog nooit door het apparaat uitgelezen",
+    "dump": "Rapporteer wat een printer antwoordt",
+    "dump_hint": "Bevraagt het adres hierboven en maakt een rapport dat je in het supportonderwerp kunt plakken. Gebruik het wanneer een niveau als onbekend of “nog wat over” verschijnt: het bevat de eigen waarden van de fabrikant, die de standaarduitlezing niet altijd meegeeft.",
+    "dump_button": "Rapport maken",
+    "dumping": "Printer wordt uitgelezen…",
+    "dump_copy": "Kopiëren",
+    "dump_copied": "Gekopieerd"
   }
 }

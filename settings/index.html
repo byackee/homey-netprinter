@@ -37,6 +37,15 @@
     white-space: pre-wrap; word-break: break-word; margin: .5rem 0 0;
     font-size: .85rem; color: var(--homey-text-color-light);
   }
+  /* The report is meant to be selected and pasted, so it is monospaced, scrolls
+     rather than reflowing, and is capped so it cannot push the rest of the page
+     off screen. */
+  pre.report {
+    white-space: pre; overflow-x: auto; max-height: 22rem; overflow-y: auto;
+    color: var(--homey-text-color); font-family: ui-monospace, Menlo, Consolas, monospace;
+    background: var(--homey-background-color); border: 1px solid var(--homey-line-color);
+    border-radius: 6px; padding: .6rem .7rem; user-select: text;
+  }
 </style>
 
 <h2 data-i18n="settings.printers"></h2>
@@ -56,6 +65,11 @@
 <p class="hint" data-i18n="settings.sweep_hint"></p>
 <button type="button" id="sweep" data-i18n="settings.sweep_button"></button>
 <div id="sweep-result"></div>
+
+<h2 data-i18n="settings.dump"></h2>
+<p class="hint" data-i18n="settings.dump_hint"></p>
+<button type="button" id="dump" data-i18n="settings.dump_button"></button>
+<div id="dump-result"></div>
 
 <script type="text/javascript">
   /*
@@ -134,7 +148,13 @@
       // looks wrong, and it is invisible everywhere else.
       const cls = supply.supplyClass === null || supply.supplyClass === undefined
         ? '' : ' · class ' + supply.supplyClass;
-      return '<div class="sub">' + esc(supply.level + ' / ' + supply.maxCapacity + unit + cls) + '</div>';
+      // A level of -3 next to a percentage looks like a contradiction unless the
+      // page says where the percentage came from. It came from the manufacturer's
+      // own branch, which is a weaker source than the standard table, and a user
+      // reading a number is entitled to know that before trusting it.
+      const source = supply.vendorSourced ? ' · manufacturer value' : '';
+      return '<div class="sub">' +
+        esc(supply.level + ' / ' + supply.maxCapacity + unit + cls + source) + '</div>';
     }
 
     function traysTable(trays) {
@@ -314,8 +334,64 @@
       }
     }
 
+    /*
+     * Produces the report a support topic actually needs, from Homey rather than
+     * from the user's own machine.
+     *
+     * The alternative this replaces was asking someone to install a command-line
+     * SNMP tool, get its platform-specific argument syntax right, and photograph
+     * the result. That is a lot to ask of anyone, and what came back was pages of
+     * index rows rather than the six values that mattered — which was the fault
+     * of the request, not of the person answering it.
+     */
+    async function runDump() {
+      const button = document.getElementById('dump');
+      const target = document.getElementById('dump-result');
+      button.disabled = true;
+      target.innerHTML = '<p class="hint">' + esc(Homey.__('settings.dumping')) + '</p>';
+
+      try {
+        const answer = await call('POST', '/dump', {
+          host: document.getElementById('host').value.trim(),
+          community: document.getElementById('community').value.trim(),
+        });
+
+        if (!answer.ok) {
+          target.innerHTML = '<div class="card bad">' + esc(answer.message) + '</div>';
+          return;
+        }
+
+        target.innerHTML = '<pre class="report" id="dump-text">' + esc(answer.text) + '</pre>' +
+          '<button type="button" id="dump-copy" style="margin-top:.5rem">' +
+          esc(Homey.__('settings.dump_copy')) + '</button>';
+
+        document.getElementById('dump-copy').addEventListener('click', async (event) => {
+          // Selecting a scrolling block by hand on a phone is close to
+          // impossible, and this report exists to be pasted somewhere else.
+          // execCommand is the fallback because a settings page is not always a
+          // secure context, where navigator.clipboard simply is not there.
+          try {
+            await navigator.clipboard.writeText(answer.text);
+          } catch (error) {
+            const range = document.createRange();
+            range.selectNodeContents(document.getElementById('dump-text'));
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            document.execCommand('copy');
+          }
+          event.target.textContent = Homey.__('settings.dump_copied');
+        });
+      } catch (error) {
+        target.innerHTML = '<p class="bad">' + esc(error.message) + '</p>';
+      } finally {
+        button.disabled = false;
+      }
+    }
+
     document.getElementById('test').addEventListener('click', runTest);
     document.getElementById('sweep').addEventListener('click', runSweep);
+    document.getElementById('dump').addEventListener('click', runDump);
 
     loadDevices();
   }
