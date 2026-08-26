@@ -30,20 +30,51 @@ and a nine-cartridge photo printer both work without a code change. Since 1.1.0 
 is no ceiling on it either — each level is a sub-capability rather than one of a fixed
 set of slots.
 
-All of it comes from the standard Printer MIB, which is why one driver serves every
-brand. The one known gap is Brother's toner level, and the shape of that gap was
-wrong here until a user posted his printer's actual answers.
+Almost all of it comes from the standard Printer MIB, which is why one driver serves
+every brand. There is exactly one exception, and it is worth being precise about it.
 
-It is not, as this said before, that Brother fills the standard table with a flat 0
-or 100. An MFC-L2827DW answers `-3 / -2 tenthsOfGrams` for its toner — the
-Printer-MIB's way of saying "there is some left and I will not put a number on it" —
-which the app renders honestly as *some left*. Everything else that printer reports
-is read correctly, drum life included, and matches what Home Assistant shows for the
-same machine to the page.
+An MFC-L2827DW answers `-3 / -2 tenthsOfGrams` for its toner — the Printer-MIB's way
+of saying "there is some left and I will not put a number on it". That is not a
+broken printer and not a broken read; it is a printer declining to answer. Everything
+else it reports is read correctly, drum life included, and matches what Home
+Assistant shows for the same machine to the page.
 
-The number does exist: Home Assistant reads that toner at 92 % from Brother's private
-OIDs. Reading those is the open work, and it waits on a walk from a real Brother
-rather than on a guess — a made-up toner level is worse than none.
+The number does exist. Brother keeps it on a private branch, packed into a single
+OctetString alongside drum, belt, fuser and page counters — one OID, not the pages of
+walk output this project first went looking for. Since 1.2.0 the app reads it.
+
+### The one vendor read, and its limits
+
+`lib/vendors/brother.mts` decodes that blob. The decoding is not this project's work:
+it is Home Assistant's [`brother`](https://github.com/bieniu/brother) library, which
+has been read against thousands of Brother machines over years — field experience one
+app author with one printer cannot reproduce. The marker bytes, the hundredths-of-a-
+percent scale and the older five-byte layout all come from there, and the tests decode
+that library's own worked example to the numbers it documents.
+
+Three rules keep this from becoming the thing the app depends on:
+
+- **It fills gaps, never overrides.** A row the standard table numbered keeps the
+  standard number. Only a row that came back `-3`, `-2` or unreadable is offered a
+  vendor value.
+- **An ambiguous value is dropped.** The blob names a colour and a kind of part and
+  nothing else. If two rows could equally claim a reading, neither gets it.
+- **The user is told which is which.** A vendor-sourced level is labelled as one in
+  the settings page, next to the `-3` the printer actually sent.
+
+No other brand needs this, and none should get it without the same kind of evidence.
+
+### When a level still reads unknown
+
+Settings has a **Report what a printer answers** button. It reads the address, dumps
+the standard supplies table and the manufacturer's private branch — raw bytes and
+decoded values both — and hands back text to paste into the [support
+topic](https://community.homey.app/t/158655).
+
+That button exists because of how this gap was actually diagnosed: by asking someone
+to install a command-line SNMP tool, work out its argument syntax for their platform,
+and photograph the output. What came back was the wrong pages, and that was the fault
+of the request. Homey is already on the same network as the printer; it can ask.
 
 ### Finding a printer
 
