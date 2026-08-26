@@ -72,6 +72,42 @@ function toRaw(varbind: snmp.Varbind): Buffer | null {
 const MAX_WALK_ROWS = 5_000;
 const MAX_WALK_BYTES = 2_000_000;
 
+/**
+ * Stops an unparseable reply from killing the app.
+ *
+ * net-snmp reads every inbound datagram on its socket and, when one is not
+ * valid SNMP, catches the parse failure and re-emits it as an `error` event.
+ * An EventEmitter with no `error` listener rethrows — and that throw happens
+ * inside the socket's own message handler, so it lands outside every promise
+ * chain this module has. No `try`/`catch` around a `get` or a `walk` can reach
+ * it. The process simply dies:
+ *
+ *   TypeError: Value read as integer null is not an integer
+ *       at readInt32 (net-snmp/index.js)
+ *       at Message.createFromBuffer
+ *       at Session.onMsg
+ *       at Socket.emit
+ *       at UDP.onMessage
+ *
+ * Which is what happened: real crash reports from 1.1.3, on a network where
+ * something answers port 161 with bytes that are not SNMP. The subnet sweep
+ * makes that far likelier than it sounds — it asks 254 addresses at once, and
+ * only needs one of them to be a device with different ideas about that port.
+ *
+ * The in-flight request is deliberately left alone. A malformed datagram
+ * carries no request id, so there is nothing to fail; the request times out on
+ * its own a moment later, which is the honest outcome. All this does is keep
+ * the app alive to see it.
+ */
+export function guardSession(
+  session: { on(event: 'error', listener: (error: Error) => void): unknown },
+  onParseError: (message: string) => void = () => {},
+): void {
+  session.on('error', (error: Error) => {
+    onParseError(error?.message ?? String(error));
+  });
+}
+
 export function isMissingOidError(message: string): boolean {
   return /NoSuchName/i.test(message);
 }
@@ -96,6 +132,14 @@ export class SnmpClient {
   private readonly community: string;
   private readonly version: SnmpVersion;
   private readonly timeout: number;
+  /**
+   * The last datagram this client could not parse, if any.
+   *
+   * Kept so a read that times out because something on the network is
+   * answering rubbish can say so, rather than looking like a printer that
+   * simply did not reply.
+   */
+  private lastSocketError: string | null = null;
   private readonly retries: number;
   private readonly port: number;
 
@@ -108,13 +152,29 @@ export class SnmpClient {
     this.port = options.port ?? DEFAULT_PORT;
   }
 
+  /**
+   * Adds what the socket saw to a failure the caller is about to be told about.
+   *
+   * A timeout and a timeout-because-something-is-shouting-garbage look
+   * identical from the outside, and the second one is the only clue anybody
+   * gets that the address is answering but is not a printer.
+   */
+  private explain(message: string): string {
+    return this.lastSocketError === null
+      ? message
+      : `${message} (an unparseable reply also arrived: ${this.lastSocketError})`;
+  }
+
   private openSession(): snmp.Session {
-    return snmp.createSession(this.host, this.community, {
+    const session = snmp.createSession(this.host, this.community, {
       version: this.version === 'v1' ? snmp.Version1 : snmp.Version2c,
       timeout: this.timeout,
       retries: this.retries,
       port: this.port,
     });
+
+    guardSession(session, (message) => { this.lastSocketError = message; });
+    return session;
   }
 
   /**
@@ -157,7 +217,7 @@ export class SnmpClient {
       // One request per OID recovers everything it does have.
       if (isMissingOidError(message)) return this.getOneByOne(oids, keepRaw);
 
-      throw new SnmpUnreachableError(this.host, message);
+      throw new SnmpUnreachableError(this.host, this.explain(message));
     } finally {
       session.close();
     }
@@ -193,7 +253,7 @@ export class SnmpClient {
       }
     }
 
-    if (!reachable) throw new SnmpUnreachableError(this.host, lastError);
+    if (!reachable) throw new SnmpUnreachableError(this.host, this.explain(lastError));
     return out;
   }
 
@@ -259,7 +319,7 @@ export class SnmpClient {
       // point are still good, and an empty map is a truthful answer.
       if (isMissingOidError(message)) return out;
 
-      throw new SnmpUnreachableError(this.host, message);
+      throw new SnmpUnreachableError(this.host, this.explain(message));
     } finally {
       session.close();
     }
