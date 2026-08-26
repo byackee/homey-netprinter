@@ -177,6 +177,19 @@ app installed with `homey app install` has no readable log: Developer Tools list
 only App Store submissions and the CLI has no log command, so without this page a
 failing SNMP read is completely opaque.
 
+## Support ❤️
+
+This app is free, and built on my own time — evenings spent reading MIB tables so
+you don't have to. If it saves you a failed print job or two, you can support the
+work:
+
+- ☕ Buy me a coffee: https://buymeacoffee.com/byackee
+- 🔗 All my links: https://linktr.ee/byackee
+
+Opening an issue with your printer's diagnostics helps just as much — every report
+makes the next model work out of the box. Thank you for using it, and for every bit
+of support 🙏
+
 ## Licence
 
 MIT
