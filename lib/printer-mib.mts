@@ -231,6 +231,19 @@ export interface Supply {
    * made the vendor read necessary.
    */
   vendorSourced?: boolean;
+  /**
+   * True when {@link Supply.percent} came from the printer's IPP reply rather
+   * than from prtMarkerSuppliesTable.
+   *
+   * Separate from {@link Supply.vendorSourced} because the two are not the same
+   * claim. A vendor value is one this app can only defend from having seen it
+   * work on that brand; an IPP value is a standard reading of a standard
+   * attribute, taken over a different protocol because this one answered and
+   * SNMP did not. A user shown a number deserves to know which of those they
+   * are looking at, and {@link Supply.level} still holds whatever the standard
+   * table sent.
+   */
+  ippSourced?: boolean;
 }
 
 /**

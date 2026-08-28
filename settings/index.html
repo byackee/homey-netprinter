@@ -152,7 +152,11 @@
       // page says where the percentage came from. It came from the manufacturer's
       // own branch, which is a weaker source than the standard table, and a user
       // reading a number is entitled to know that before trusting it.
-      const source = supply.vendorSourced ? ' · manufacturer value' : '';
+      // An IPP number is a standard reading of a standard attribute taken over
+      // another protocol, which is a different claim from a manufacturer's
+      // private guess — so it is labelled differently rather than lumped in.
+      const source = supply.vendorSourced ? ' · manufacturer value'
+        : supply.ippSourced ? ' · read over IPP' : '';
       return '<div class="sub">' +
         esc(supply.level + ' / ' + supply.maxCapacity + unit + cls + source) + '</div>';
     }

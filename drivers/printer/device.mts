@@ -13,14 +13,19 @@ import {
   assignSupplyCapabilities,
   isSupplyCapability,
 } from '../../lib/supply-capabilities.mjs';
-import { PrinterReader, type PrinterSnapshot } from '../../lib/printer-reader.mjs';
+import {
+  PrinterReader,
+  snmpVersionOf,
+  type PrinterSnapshot,
+  type ReadProtocol,
+} from '../../lib/printer-reader.mjs';
 import { SnmpUnreachableError, type SnmpVersion } from '../../lib/snmp-client.mjs';
 
 /** What pairing stored on the device; the address can later be corrected in settings. */
 interface PrinterSettings {
   host: string;
   community: string;
-  version: SnmpVersion;
+  version: ReadProtocol;
   pollInterval: number;
   lowThreshold: number;
   offlineAfter: number;
@@ -131,14 +136,14 @@ export default class PrinterDevice extends Homey.Device {
   /** Rebuilds the SNMP reader from current settings. Called on init and on every settings change. */
   private buildReader(): void {
     const s = this.readSettings();
-    this.reader = new PrinterReader(s.host, s.community, s.version);
+    this.reader = new PrinterReader(s.host, s.community, snmpVersionOf(s.version));
   }
 
   private readSettings(): PrinterSettings {
     return {
       host: String(this.getSetting('host') ?? ''),
       community: String(this.getSetting('community') ?? 'public'),
-      version: (this.getSetting('version') as SnmpVersion) ?? 'v2c',
+      version: (this.getSetting('version') as ReadProtocol) ?? 'v2c',
       pollInterval: Number(this.getSetting('poll_interval') ?? 300),
       lowThreshold: Number(this.getSetting('low_threshold') ?? 15),
       offlineAfter: Math.max(0, Number(this.getSetting('offline_after') ?? DEFAULT_FAILURES_BEFORE_UNAVAILABLE)),

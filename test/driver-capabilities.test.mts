@@ -130,6 +130,7 @@ describe('every row the app can produce resolves to a real capability', () => {
       covers: [{ description: 'Front Door', open: false }],
       alerts: [],
       alertsRead: true,
+      ipp: null,
       vendor: null,
     }, 15);
 

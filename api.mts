@@ -17,7 +17,14 @@ import { INPUT_SHEETS_REMAINING, classifyOutputTray } from './lib/printer-mib.mj
 import { SnmpClient, negotiateVersion } from './lib/snmp-client.mjs';
 import { subnetOf } from './lib/network-scan.mjs';
 import { vendorName } from './lib/vendors.mjs';
-import { VENDOR_WALK, formatVendorWalk, vendorWalkRoot } from './lib/vendor-walk.mjs';
+import {
+  VENDOR_WALK,
+  formatVendorWalk,
+  renderVendorValue,
+  vendorWalkRoot,
+} from './lib/vendor-walk.mjs';
+import { probeIpp } from './lib/ipp-client.mjs';
+import { IPP_ATTRIBUTES, ippReading } from './lib/ipp-printer.mjs';
 import {
   BROTHER_ENTERPRISE,
   BROTHER_OIDS,
@@ -31,6 +38,15 @@ import {
  * awaited, and why reads use a short timeout with no retry.
  */
 const API_READ_TIMEOUT_MS = 2_500;
+
+/**
+ * How many IPP attributes one report prints.
+ *
+ * A printer asked for everything answers with a hundred-odd attributes, most of
+ * them about page sizes. Enough to hold every supply and status attribute there
+ * is, and short of the point where nobody reads the report.
+ */
+const IPP_REPORT_ATTRIBUTES = 80;
 
 /** The shape Homey hands every endpoint. */
 interface Request {
@@ -73,6 +89,8 @@ interface DeviceReport {
       someRemaining: boolean;
       /** The percentage came from the manufacturer's private branch, not the standard table. */
       vendorSourced: boolean;
+      /** The percentage came from the printer's IPP reply, not from SNMP. */
+      ippSourced: boolean;
     }>;
     trays: Array<{
       name: string;
@@ -164,6 +182,7 @@ async function getDiagnostics({ homey }: Request): Promise<{
             receptacle: s.isReceptacle,
             someRemaining: s.someRemaining,
             vendorSourced: s.vendorSourced === true,
+            ippSourced: s.ippSourced === true,
           })),
           trays: snapshot.inputTrays.map((t) => ({
             name: t.name,
@@ -261,8 +280,27 @@ async function postTest({ body }: Request): Promise<{
   // Two versions tried at this timeout each, then one read: comfortably inside
   // the ten seconds the API allows.
   const version = await negotiateVersion(host, community, API_READ_TIMEOUT_MS);
+
+  // No SNMP is no longer the end of the conversation. The reply is assembled
+  // from the probe itself rather than by handing the address to a reader: a
+  // reader would look for the endpoint all over again, and this endpoint has
+  // already spent five seconds finding out that SNMP is silent.
   if (version === null) {
-    return { ok: false, message: `No SNMP answer from ${host} on v2c or v1.` };
+    const found = await probeIpp(host, IPP_ATTRIBUTES, API_READ_TIMEOUT_MS, ['/ipp/print', '/'])
+      .catch(() => null);
+    if (found === null) {
+      return { ok: false, message: `No SNMP or IPP answer from ${host}.` };
+    }
+
+    const reading = ippReading(found.response.attributes);
+    return {
+      ok: true,
+      version: 'ipp',
+      model: reading.model,
+      vendor: null,
+      serial: reading.serial,
+      supplies: reading.supplies.map((s) => ({ description: s.description, percent: s.percent })),
+    };
   }
 
   try {
@@ -447,7 +485,49 @@ async function postDump({ body }: Request): Promise<{
     }
   }
 
+  lines.push(...await ippSection(host));
   return { ok: true, text: lines.join('\n') };
+}
+
+/**
+ * What the printer says over IPP, appended to every report.
+ *
+ * Unconditional, and that is the point. A missing level is exactly the case
+ * where nobody yet knows which protocol holds the answer, so a report that
+ * covers only the one the app happens to be using cannot settle it. This costs
+ * one HTTP round trip and turns "supplies do not show" into a question with an
+ * answer in it.
+ *
+ * `all` rather than the poll's short list: this is not the hot path, and an
+ * attribute nobody thought to ask for is precisely what a diagnostic is for.
+ */
+async function ippSection(host: string): Promise<string[]> {
+  const lines = ['', '## IPP'];
+
+  const found = await probeIpp(host, ['all'], API_READ_TIMEOUT_MS).catch(() => null);
+  if (found === null) {
+    lines.push(
+      'No IPP answer on any of the usual paths. On a printer that Homey found by',
+      'itself that is worth knowing: discovery watches _ipp._tcp, so a printer that',
+      'announced itself and then will not answer is telling us something.',
+    );
+    return lines;
+  }
+
+  const attributes = found.response.attributes;
+  lines.push(`answered at ${found.client.printerUri}`, `${attributes.size} attributes`, '');
+
+  let shown = 0;
+  for (const [name, values] of attributes) {
+    if (shown >= IPP_REPORT_ATTRIBUTES) {
+      lines.push('', `(${attributes.size - shown} more attributes, not shown)`);
+      break;
+    }
+    shown += 1;
+    lines.push(name, `      ${values.map((v) => renderVendorValue(v)).join('  ')}`);
+  }
+
+  return lines;
 }
 
 /**

@@ -68,11 +68,15 @@ function isPrintable(value: Buffer): boolean {
  * not a lossy transcription of them.
  */
 export function renderVendorValue(
-  value: SnmpValue,
+  value: SnmpValue | boolean,
   maxChars: number = VENDOR_WALK.maxValueChars,
 ): string {
   if (value === null) return '(no answer)';
   if (typeof value === 'number') return String(value);
+  // Booleans arrive only from IPP, which has a tag for them where SNMP would
+  // send an integer. The report prints both sides of the diagnostic, so the
+  // renderer has to speak for both.
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
 
   const buffer = typeof value === 'string' ? Buffer.from(value, 'latin1') : value;
   // An empty OctetString is a real answer — the printer has that OID and left it

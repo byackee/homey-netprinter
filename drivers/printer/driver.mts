@@ -2,8 +2,14 @@ import Homey from 'homey';
 
 import type NetworkPrinterApp from '../../app.mjs';
 import { isSupplyCapability } from '../../lib/supply-capabilities.mjs';
-import { PrinterReader } from '../../lib/printer-reader.mjs';
-import { negotiateVersion, type SnmpVersion } from '../../lib/snmp-client.mjs';
+import {
+  PrinterReader,
+  snmpVersionOf,
+  type ReadProtocol,
+} from '../../lib/printer-reader.mjs';
+import { IPP_ATTRIBUTES, ippReading } from '../../lib/ipp-printer.mjs';
+import { probeIpp } from '../../lib/ipp-client.mjs';
+import { negotiateVersion } from '../../lib/snmp-client.mjs';
 import { scanSubnet, subnetOf } from '../../lib/network-scan.mjs';
 import { suggestDeviceName, vendorName } from '../../lib/vendors.mjs';
 import type PrinterDevice from './device.mjs';
@@ -18,7 +24,7 @@ interface ProbeRequest {
 interface Candidate {
   host: string;
   community: string;
-  version: SnmpVersion;
+  version: ReadProtocol;
   name: string;
   serial: string | null;
 }
@@ -178,7 +184,10 @@ export default class PrinterDriver extends Homey.Driver {
         .map((printer) => ({
           host: printer.host,
           community: 'public',
-          version: 'v2c' as SnmpVersion,
+          // Whatever answered the sweep. Hard-coding v2c here would pair a
+          // printer found on 631 as an SNMP device, and it would never report
+          // a level.
+          version: printer.protocol,
           name: printer.name,
           serial: printer.serial,
         }));
@@ -259,18 +268,24 @@ export default class PrinterDriver extends Homey.Driver {
   }
 
   /**
-   * Confirms an address really is an SNMP-readable printer, and describes it.
+   * Confirms an address really is a readable printer, and describes it.
    *
-   * mDNS says a printer is there; it says nothing about whether SNMP is enabled,
-   * which is what this app actually needs. Offering an unreadable device would
-   * pair something that never reports a level.
+   * mDNS says a printer is there; it says nothing about whether this app can
+   * read it. Offering an unreadable device would pair something that never
+   * reports a level.
+   *
+   * SNMP is tried first because it carries more, and IPP after — not as a
+   * consolation prize but as the fix for a real absurdity: discovery watches
+   * `_ipp._tcp`, so every printer that reaches this method has already proved it
+   * speaks IPP, and refusing to pair it for want of SNMP meant turning away a
+   * printer we had just been talking to.
    */
   private async identify(host: string, community: string): Promise<Candidate | null> {
     // Five seconds with a retry, matching what polling allows. Two was too tight
     // for an older printer waking its SNMP agent: it would pair-fail on a
     // machine that then polled perfectly well once added by hand.
     const version = await negotiateVersion(host, community, PAIR_TIMEOUT_MS);
-    if (version === null) return null;
+    if (version === null) return this.identifyOverIpp(host, community);
 
     // Past this point the printer has answered sysDescr, so there *is* an agent
     // at this address. Whatever happens next, "not reachable" is now the wrong
@@ -294,6 +309,34 @@ export default class PrinterDriver extends Homey.Driver {
       this.note(`identify ${host}: agent answered but identity failed — ${(error as Error).message}`);
       return { host, community, version, name: `Printer ${host}`, serial: null };
     }
+  }
+
+  /**
+   * The same question asked over IPP, for a printer with SNMP switched off.
+   *
+   * Deliberately stricter than the SNMP path: that one offers a printer whose
+   * agent answered even if the identity read failed, because an SNMP agent on
+   * port 161 is a printer. Something answering HTTP on 631 is not, so this
+   * takes an actual IPP reply as the proof.
+   */
+  private async identifyOverIpp(host: string, community: string): Promise<Candidate | null> {
+    // Two paths, not the reader's four. This runs while a user watches a pairing
+    // list fill in, and a printer that announced itself on _ipp._tcp and then
+    // ignores /ipp/print is not worth twenty seconds of their attention.
+    const found = await probeIpp(host, IPP_ATTRIBUTES, PAIR_TIMEOUT_MS, ['/ipp/print', '/'])
+      .catch(() => null);
+    if (found === null) return null;
+
+    const reading = ippReading(found.response.attributes);
+    this.note(`identify ${host}: no SNMP, but IPP answered at ${found.client.printerUri}`);
+
+    return {
+      host,
+      community,
+      version: 'ipp',
+      name: suggestDeviceName(reading.model, null, reading.name, host),
+      serial: reading.serial,
+    };
   }
 
   /**
@@ -341,14 +384,18 @@ export default class PrinterDriver extends Homey.Driver {
 
       if (!host) return { ok: false, message: this.homey.__('pair.error_no_host') };
 
-      const version = await negotiateVersion(host, community, PAIR_TIMEOUT_MS);
-      if (version === null) return { ok: false, message: this.homey.__('pair.error_unreachable') };
+      const snmp = await negotiateVersion(host, community, PAIR_TIMEOUT_MS);
+      const candidate = snmp === null ? await this.identifyOverIpp(host, community) : null;
+      if (snmp === null && candidate === null) {
+        return { ok: false, message: this.homey.__('pair.error_unreachable') };
+      }
+      const version: ReadProtocol = snmp ?? 'ipp';
 
       // The printer has answered, so the repair succeeds from here whatever the
       // identity read does. A printer that omits one of the six identity OIDs is
       // still the printer this device is for; refusing to repair it would strand
       // the user on an address they have just proved works.
-      const identity = await new PrinterReader(host, community, version, PAIR_TIMEOUT_MS)
+      const identity = await new PrinterReader(host, community, snmpVersionOf(version), PAIR_TIMEOUT_MS)
         .readIdentity()
         .catch((error: Error) => {
           this.note(`repair ${host}: answered but identity failed — ${error.message}`);

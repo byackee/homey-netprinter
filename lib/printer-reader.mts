@@ -37,6 +37,17 @@ import {
   vendorPercentFor,
   type BrotherReading,
 } from './vendors/brother.mjs';
+import { IPP_ATTRIBUTES, fillFromIpp, ippReading, type IppReading } from './ipp-printer.mjs';
+import { IppClient, IppError, probeIpp } from './ipp-client.mjs';
+
+/**
+ * How long to leave a printer alone after it answered no IPP.
+ *
+ * Long enough that a printer which simply does not speak it costs nothing, and
+ * short enough that one which was merely switched off is picked up the same
+ * afternoon.
+ */
+const IPP_RETRY_AFTER_MS = 30 * 60_000;
 
 /** Everything one poll can learn about a printer. */
 export interface PrinterSnapshot {
@@ -73,6 +84,15 @@ export interface PrinterSnapshot {
    */
   alertsRead: boolean;
   /**
+   * What the printer's IPP reply added, when one was needed.
+   *
+   * Null on every printer whose SNMP read answered in full — which is the
+   * common case, and the reason this costs nothing there. Kept on the snapshot
+   * rather than folded silently into the supplies so the settings page can say
+   * which numbers arrived over which protocol.
+   */
+  ipp: IppInfo | null;
+  /**
    * What the manufacturer's private branch added, when one was consulted.
    *
    * Null on every printer whose standard table answered in full, which is nearly
@@ -94,6 +114,41 @@ export interface VendorReading {
   values: Array<{ key: string; value: number; isPercent: boolean }>;
   /** Which supply rows this read filled in, by table index. */
   filled: string[];
+}
+
+/**
+ * What a paired device stores as the way to read it.
+ *
+ * An SNMP version, or `ipp` for a printer that answers no SNMP at all. One
+ * setting rather than two flags because they are genuinely exclusive: this is
+ * the protocol the reader speaks, and a device has exactly one.
+ */
+export type ReadProtocol = SnmpVersion | 'ipp';
+
+/** The SNMP version to read with, or null when the printer is IPP-only. */
+export function snmpVersionOf(protocol: ReadProtocol): SnmpVersion | null {
+  return protocol === 'ipp' ? null : protocol;
+}
+
+/** What one IPP read contributed to a snapshot. */
+export interface IppInfo {
+  /** The URI that answered, so a report can say where the numbers came from. */
+  uri: string;
+  model: string | null;
+  serial: string | null;
+  /** `printer-state-reasons` — the printer's own words for what is wrong. */
+  stateReasons: string[];
+  /** How many supplies the reply described. */
+  supplyCount: number;
+  /** Standard-table rows this reading filled in, by table index. */
+  filled: string[];
+  /**
+   * True when the supplies on the snapshot are IPP's own rather than fills.
+   *
+   * That is the case the whole module exists for: a printer whose SNMP answers
+   * nothing about ink, which until now had no levels at all.
+   */
+  sole: boolean;
 }
 
 /** Identity fields, read once during pairing. */
@@ -125,9 +180,45 @@ function tableIndex(oid: string, root: string): string | null {
 
 export class PrinterReader {
   private readonly client: SnmpClient;
+  private readonly host: string;
+  private readonly timeout: number | undefined;
+  /**
+   * False when this printer is read over IPP alone.
+   *
+   * Homey discovers printers on `_ipp._tcp` and this app then reads them over
+   * SNMP, which more and more printers ship with turned off — so the app was
+   * finding printers it then refused to pair. A null version is that printer:
+   * everything below skips SNMP entirely rather than negotiating with something
+   * that is not listening.
+   */
+  private readonly snmpEnabled: boolean;
+  /**
+   * The IPP endpoint that answered, remembered between polls.
+   *
+   * Finding it costs up to four refused connections; doing that every five
+   * minutes for the life of the device would be absurd.
+   */
+  private ipp: IppClient | null = null;
+  /**
+   * When to stop declining to ask, after an IPP probe found nothing.
+   *
+   * Without this, a printer with one permanently unreadable part — a laser that
+   * will not number its fuser, say — would pay four refused connections on
+   * every poll for the rest of its life, because the gap that triggers the IPP
+   * read is one that will never close. Applied only where IPP is the second
+   * source; a printer read over IPP alone is asked every time, since for it a
+   * silent probe is a printer that is asleep, not one that does not speak it.
+   */
+  private ippSilentUntil = 0;
 
-  constructor(host: string, community: string, version: SnmpVersion, timeout?: number) {
-    this.client = new SnmpClient({ host, community, version, timeout });
+  constructor(host: string, community: string, version: SnmpVersion | null, timeout?: number) {
+    this.host = host;
+    this.timeout = timeout;
+    this.snmpEnabled = version !== null;
+    // Constructed either way: a client opens no socket until it is asked
+    // something, so an unused one costs nothing and spares every method below a
+    // null check it would never take.
+    this.client = new SnmpClient({ host, community, version: version ?? 'v2c', timeout });
   }
 
   /**
@@ -137,6 +228,20 @@ export class PrinterReader {
    * instead of making the user wait through a full walk.
    */
   async readIdentity(): Promise<PrinterIdentity> {
+    if (!this.snmpEnabled) {
+      const found = await this.readIppReading();
+      if (found === null) throw new IppError(`No IPP answer from ${this.host}`);
+      return {
+        model: found.reading.model,
+        name: found.reading.name,
+        serial: found.reading.serial,
+        // sysObjectID is an SNMP idea. IPP names the manufacturer in words, not
+        // as an IANA number, so there is nothing honest to put here.
+        enterprise: null,
+        description: null,
+      };
+    }
+
     const oids = [
       OID.hrDeviceDescr,
       OID.prtGeneralPrinterName,
@@ -158,6 +263,8 @@ export class PrinterReader {
 
   /** Reads everything: identity, status and the full supplies table. */
   async read(): Promise<PrinterSnapshot> {
+    if (!this.snmpEnabled) return this.readOverIpp();
+
     const scalarOids = [
       OID.hrDeviceDescr,
       OID.prtGeneralPrinterName,
@@ -195,6 +302,10 @@ export class PrinterReader {
     // must cost the poll nothing.
     const vendor = await this.readVendor(enterprise, supplies).catch(() => null);
 
+    // And only when something is still missing after all that. Same rule, same
+    // guarantee: a second source that fails must cost the poll nothing.
+    const ipp = await this.readIpp(supplies, inputTrays).catch(() => null);
+
     return {
       model: asString(scalars.get(OID.hrDeviceDescr)) ?? asString(scalars.get(OID.prtGeneralPrinterName)),
       name: asString(scalars.get(OID.sysName)),
@@ -213,7 +324,131 @@ export class PrinterReader {
       covers,
       alerts: alerts.rows,
       alertsRead: alerts.ok,
+      ipp,
       vendor,
+    };
+  }
+
+  /**
+   * The whole snapshot from IPP, for a printer that answers no SNMP at all.
+   *
+   * Thinner than an SNMP one, and honestly so: there is no alert table, no
+   * cover sensing and no lifetime page counter in IPP, so those stay empty
+   * rather than being filled with something that looks like a reading. What it
+   * does carry is the part a user actually watches — levels, paper, and why the
+   * printer has stopped.
+   */
+  private async readOverIpp(): Promise<PrinterSnapshot> {
+    const found = await this.readIppReading();
+    if (found === null) throw new IppError(`No IPP answer from ${this.host}`);
+    const { reading, uri } = found;
+
+    return {
+      model: reading.model,
+      name: reading.name,
+      serial: reading.serial,
+      enterprise: null,
+      status: reading.status,
+      displayText: reading.displayText,
+      // IPP defines no printer-level impression counter — the counters it has
+      // belong to jobs — so this stays null rather than becoming a wrong number.
+      pageCount: null,
+      errors: reading.errors,
+      supplies: reading.supplies,
+      outputTrays: [],
+      inputTrays: reading.inputTrays,
+      covers: [],
+      alerts: [],
+      // Not "nothing is wrong": there was no alert table to read. The
+      // distinction is what stops syncCapabilities clearing rows on a protocol
+      // that never had them.
+      alertsRead: false,
+      ipp: {
+        uri,
+        model: reading.model,
+        serial: reading.serial,
+        stateReasons: reading.stateReasons,
+        supplyCount: reading.supplies.length,
+        filled: [],
+        sole: reading.supplies.length > 0,
+      },
+      vendor: null,
+    };
+  }
+
+  /**
+   * Reads the printer over IPP, reusing the endpoint that worked last time.
+   *
+   * Returns null when nothing answered, which is the ordinary case for a
+   * printer whose SNMP already told us everything — this is only ever called
+   * when something was missing.
+   */
+  private async readIppReading(): Promise<{ reading: IppReading; uri: string } | null> {
+    if (this.ipp !== null) {
+      try {
+        const response = await this.ipp.getPrinterAttributes(IPP_ATTRIBUTES);
+        return { reading: ippReading(response.attributes), uri: this.ipp.printerUri };
+      } catch {
+        // The path that worked has stopped working. A firmware update moves one
+        // occasionally, and a printer that has just woken up refuses one round
+        // trip. Forget it and look again rather than give up on the protocol.
+        this.ipp = null;
+      }
+    }
+
+    const found = await probeIpp(this.host, IPP_ATTRIBUTES, this.timeout);
+    if (found === null) return null;
+
+    this.ipp = found.client;
+    return { reading: ippReading(found.response.attributes), uri: found.client.printerUri };
+  }
+
+  /**
+   * Fills what the SNMP read left unanswered, from the printer's IPP reply.
+   *
+   * Two shapes, one rule. A supplies table with holes in it gets those holes
+   * filled and nothing else touched — a row the Printer-MIB numbered keeps the
+   * Printer-MIB's number. A printer with no supplies table at all gets IPP's
+   * rows outright, because the alternative is the blank screen its owner has
+   * been looking at.
+   *
+   * Returns null the moment there is nothing to do, which on a printer whose
+   * standard read works is every poll. That short-circuit is what keeps an HTTP
+   * round trip off the hot path of the printers that do not need one.
+   */
+  private async readIpp(supplies: Supply[], inputTrays: InputTray[]): Promise<IppInfo | null> {
+    if (supplies.length > 0 && supplies.every((s) => s.percent !== null)) return null;
+    if (Date.now() < this.ippSilentUntil) return null;
+
+    const found = await this.readIppReading();
+    if (found === null) {
+      this.ippSilentUntil = Date.now() + IPP_RETRY_AFTER_MS;
+      return null;
+    }
+    const { reading, uri } = found;
+
+    let filled: string[] = [];
+    let sole = false;
+
+    if (supplies.length === 0) {
+      supplies.push(...reading.supplies);
+      sole = reading.supplies.length > 0;
+    } else {
+      filled = fillFromIpp(supplies, reading.supplies);
+    }
+
+    // Trays are all-or-nothing for the same reason: a printer that publishes no
+    // input table over SNMP has nothing for IPP rows to conflict with.
+    if (inputTrays.length === 0) inputTrays.push(...reading.inputTrays);
+
+    return {
+      uri,
+      model: reading.model,
+      serial: reading.serial,
+      stateReasons: reading.stateReasons,
+      supplyCount: reading.supplies.length,
+      filled,
+      sole,
     };
   }
 

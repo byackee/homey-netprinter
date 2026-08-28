@@ -45,6 +45,11 @@ describe('renderVendorValue', () => {
     assert.ok(rendered.includes('400 bytes'), rendered);
   });
 
+  it('renders the boolean IPP has and SNMP does not', () => {
+    assert.equal(renderVendorValue(true), 'true');
+    assert.equal(renderVendorValue(false), 'false');
+  });
+
   it('says an OID answered blank rather than rendering nothing at all', () => {
     assert.equal(renderVendorValue(Buffer.alloc(0)), '(empty)');
   });
