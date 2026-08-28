@@ -85,6 +85,15 @@ here". Nothing in that section is decoded, either: a branch nobody has read has 
 decoder, and inventing one from a single report is how a vendor quirk becomes a wrong
 reading on somebody else's printer.
 
+Every report then ends with IPP, whatever the brand. A missing level is exactly the
+case where nobody yet knows which protocol holds the answer, so a report covering
+only the one the app happens to be reading cannot settle it. For one version that is
+what happened: 1.3.0 added the section and left it reachable by a single brand, so
+the reports most worth having were the ones without it. The order of a report now
+lives in one place with one exit — `lib/report.mts` — and the IPP read is started
+alongside the manufacturer's branch rather than after it, because ten seconds is the
+whole budget and the branch walk may spend four of them.
+
 ### The second protocol
 
 Everything above is SNMP, and where a printer implements the Printer-MIB properly
