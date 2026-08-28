@@ -12,21 +12,19 @@ import type Homey from 'homey';
 import type NetworkPrinterApp from './app.mjs';
 import type PrinterDevice from './drivers/printer/device.mjs';
 
+import type { Supply } from './lib/printer-mib.mjs';
+import type { SnmpVersion } from './lib/snmp-client.mjs';
+
 import { PrinterReader } from './lib/printer-reader.mjs';
 import { INPUT_SHEETS_REMAINING, classifyOutputTray } from './lib/printer-mib.mjs';
 import { SnmpClient, negotiateVersion } from './lib/snmp-client.mjs';
+import { buildDumpReport } from './lib/report.mjs';
 import { subnetOf } from './lib/network-scan.mjs';
 import { vendorName } from './lib/vendors.mjs';
-import {
-  VENDOR_WALK,
-  formatVendorWalk,
-  renderVendorValue,
-  vendorWalkRoot,
-} from './lib/vendor-walk.mjs';
+import { VENDOR_WALK, renderVendorValue } from './lib/vendor-walk.mjs';
 import { probeIpp } from './lib/ipp-client.mjs';
 import { IPP_ATTRIBUTES, ippReading } from './lib/ipp-printer.mjs';
 import {
-  BROTHER_ENTERPRISE,
   BROTHER_OIDS,
   decodeBrotherReading,
   printerKindFrom,
@@ -340,8 +338,8 @@ async function getTrace({ homey }: Request): Promise<{
 }
 
 /**
- * Dumps what one printer answers on its manufacturer's private branch, as text
- * a user can copy into a bug report.
+ * Dumps what one printer answers, on every protocol it answers on, as text a
+ * user can copy into a bug report.
  *
  * This endpoint exists because of how the last gap was actually diagnosed. The
  * only way to see a private OID was to ask the owner to install a command-line
@@ -350,11 +348,11 @@ async function getTrace({ homey }: Request): Promise<{
  * theirs. A button that reads the same thing from Homey, on the network the
  * printer is already on, removes every one of those steps.
  *
- * It is deliberately not a walk. A walk of a vendor branch runs to thousands of
- * rows, would not finish inside the ten seconds a Homey API call gets, and
- * buries the six values that matter. Reading the OIDs we know by name answers in
- * one round trip, and an OID nobody knows about is not something a longer dump
- * would have identified anyway.
+ * What goes into the report, and in what order, is decided in lib/report.mts.
+ * Everything here is wiring: this function knows how to reach a printer, and
+ * nothing about which sections a report has. That split is the fix for a report
+ * that used to end at the private branch for every brand but one — see the note
+ * at the top of that module.
  */
 async function postDump({ body }: Request): Promise<{
   ok: boolean;
@@ -373,87 +371,47 @@ async function postDump({ body }: Request): Promise<{
 
   const reader = new PrinterReader(host, community, version, API_READ_TIMEOUT_MS);
   const identity = await reader.readIdentity();
-  const vendor = vendorName(identity.enterprise);
-
-  const lines: string[] = [
-    `# ${[vendor, identity.model].filter(Boolean).join(' ') || host}`,
-    `host        ${host}`,
-    `snmp        ${version}, community "${community}"`,
-    `sysObjectID enterprise ${identity.enterprise ?? 'unknown'}${vendor ? ` (${vendor})` : ''}`,
-    `serial      ${identity.serial ?? '—'}`,
-    '',
-  ];
-
-  // The standard table first, always. It is the reading the app actually
-  // depends on, and a report that shows only the vendor branch cannot say
-  // whether the vendor branch was needed.
   const snapshot = await reader.read();
-  lines.push('## prtMarkerSuppliesTable (the standard read)');
-  if (snapshot.supplies.length === 0) {
-    lines.push('(no rows — this printer reports no supplies table)');
-  }
-  for (const supply of snapshot.supplies) {
-    const percent = supply.percent === null ? 'no number' : `${supply.percent} %`;
-    lines.push(
-      `[${supply.index}] ${supply.description || supply.colour}`,
-      `      level ${supply.level} / ${supply.maxCapacity} ${supply.unit}` +
-        ` · type ${supply.type} · class ${supply.supplyClass ?? '—'} → ${percent}` +
-        (supply.vendorSourced ? ' (from the vendor branch)' : ''),
-    );
-  }
-  lines.push('');
 
-  // A brand this app has no decoder for gets its branch walked rather than
-  // skipped. Reading nothing there was the real gap in this endpoint: the
-  // report could only help the one brand that already worked, so the owner of
-  // the next unexplained supply was sent back to a command line — the exact
-  // thing the button was built to end. Bounded, undecoded, and honest about
-  // stopping early: see lib/vendor-walk.mts.
-  if (identity.enterprise !== BROTHER_ENTERPRISE) {
-    if (identity.enterprise === null) {
-      lines.push(
-        '## private branch',
-        'This printer does not say who made it — sysObjectID carries no enterprise',
-        'number — so there is no private branch to look under. Everything above comes',
-        'from the standard Printer-MIB.',
-      );
-      return { ok: true, text: lines.join('\n') };
-    }
-
-    const root = vendorWalkRoot(identity.enterprise);
+  const text = await buildDumpReport({
+    host,
+    community,
+    version,
+    identity,
+    vendor: vendorName(identity.enterprise),
+    supplies: snapshot.supplies,
     // No retries: the clock in walkBounded can only be checked between replies,
     // so a retried timeout is the one thing that can still overrun the ten
     // seconds this call gets.
-    const walker = new SnmpClient({
+    walkVendorBranch: (root) => new SnmpClient({
       host, community, version, timeout: API_READ_TIMEOUT_MS, retries: 0,
-    });
+    }).walkBounded(root, { ...VENDOR_WALK, keepRaw: true }),
+    brotherSection: () => brotherSection(host, community, version, snapshot.supplies),
+    ippSection: () => ippSection(host),
+  });
 
-    try {
-      const walk = await walker.walkBounded(root, { ...VENDOR_WALK, keepRaw: true });
-      lines.push(...formatVendorWalk(root, vendor, walk));
-    } catch (error) {
-      // The standard table above was already read, so the report is still worth
-      // pasting. Saying which half failed is what keeps it readable.
-      lines.push(
-        `## private branch, ${root} (${vendor ?? 'this manufacturer'})`,
-        `Could not be read: ${(error as Error).message}`,
-        'Everything above still stands — it was read before this failed.',
-      );
-    }
+  return { ok: true, text };
+}
 
-    return { ok: true, text: lines.join('\n') };
-  }
-
-  // Raw bytes as well as decoded values. The decode is only as good as the map
-  // behind it, and a marker this app has no name for is invisible once decoded —
-  // so the hex has to survive into the report, or the next unknown supply is
-  // undiagnosable from it.
+/**
+ * Brother's private branch, raw bytes as well as decoded values.
+ *
+ * The decode is only as good as the map behind it, and a marker this app has no
+ * name for is invisible once decoded — so the hex has to survive into the
+ * report, or the next unknown supply is undiagnosable from it.
+ */
+async function brotherSection(
+  host: string,
+  community: string,
+  version: SnmpVersion,
+  supplies: Supply[],
+): Promise<string[]> {
   const client = new SnmpClient({ host, community, version, timeout: API_READ_TIMEOUT_MS });
-  const kind = printerKindFrom(snapshot.supplies.map((s) => s.type));
+  const kind = printerKindFrom(supplies.map((s) => s.type));
   const raw = await client.get([...BROTHER_OIDS], true);
   const decoded = decodeBrotherReading(raw, kind);
 
-  lines.push('## Brother private branch, raw');
+  const lines = ['## Brother private branch, raw'];
   for (const oid of BROTHER_OIDS) {
     const value = raw.get(oid);
     lines.push(
@@ -485,8 +443,7 @@ async function postDump({ body }: Request): Promise<{
     }
   }
 
-  lines.push(...await ippSection(host));
-  return { ok: true, text: lines.join('\n') };
+  return lines;
 }
 
 /**
