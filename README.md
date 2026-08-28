@@ -67,14 +67,23 @@ No other brand needs this, and none should get it without the same kind of evide
 ### When a level still reads unknown
 
 Settings has a **Report what a printer answers** button. It reads the address, dumps
-the standard supplies table and the manufacturer's private branch — raw bytes and
-decoded values both — and hands back text to paste into the [support
-topic](https://community.homey.app/t/158655).
+the standard supplies table, then reads the manufacturer's own branch — decoded for
+Brother, whose layout is known, raw for every other brand — and hands back text to
+paste into the [support topic](https://community.homey.app/t/158655).
 
 That button exists because of how this gap was actually diagnosed: by asking someone
 to install a command-line SNMP tool, work out its argument syntax for their platform,
 and photograph the output. What came back was the wrong pages, and that was the fault
 of the request. Homey is already on the same network as the printer; it can ask.
+
+For a while it only asked on behalf of one brand, which made it useless to everyone
+who still needed it. Reading an unknown branch is now bounded instead of skipped —
+250 rows, 20 kB, four seconds — and the report names whichever of those it hit. A
+Homey API call is cut off at ten seconds, and a report that showed a truncated branch
+as a complete one would turn "there is more down here" into "there is nothing down
+here". Nothing in that section is decoded, either: a branch nobody has read has no
+decoder, and inventing one from a single report is how a vendor quirk becomes a wrong
+reading on somebody else's printer.
 
 ### Finding a printer
 
