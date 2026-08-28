@@ -17,6 +17,7 @@ import { INPUT_SHEETS_REMAINING, classifyOutputTray } from './lib/printer-mib.mj
 import { SnmpClient, negotiateVersion } from './lib/snmp-client.mjs';
 import { subnetOf } from './lib/network-scan.mjs';
 import { vendorName } from './lib/vendors.mjs';
+import { VENDOR_WALK, formatVendorWalk, vendorWalkRoot } from './lib/vendor-walk.mjs';
 import {
   BROTHER_ENTERPRISE,
   BROTHER_OIDS,
@@ -364,14 +365,44 @@ async function postDump({ body }: Request): Promise<{
   }
   lines.push('');
 
+  // A brand this app has no decoder for gets its branch walked rather than
+  // skipped. Reading nothing there was the real gap in this endpoint: the
+  // report could only help the one brand that already worked, so the owner of
+  // the next unexplained supply was sent back to a command line — the exact
+  // thing the button was built to end. Bounded, undecoded, and honest about
+  // stopping early: see lib/vendor-walk.mts.
   if (identity.enterprise !== BROTHER_ENTERPRISE) {
-    lines.push(
-      `## private branch`,
-      vendor
-        ? `No private OIDs are known for ${vendor}. Everything above comes from the`
-        : 'This printer reports no manufacturer we recognise. Everything above comes from the',
-      'standard Printer-MIB, which is all this app reads for this brand.',
-    );
+    if (identity.enterprise === null) {
+      lines.push(
+        '## private branch',
+        'This printer does not say who made it — sysObjectID carries no enterprise',
+        'number — so there is no private branch to look under. Everything above comes',
+        'from the standard Printer-MIB.',
+      );
+      return { ok: true, text: lines.join('\n') };
+    }
+
+    const root = vendorWalkRoot(identity.enterprise);
+    // No retries: the clock in walkBounded can only be checked between replies,
+    // so a retried timeout is the one thing that can still overrun the ten
+    // seconds this call gets.
+    const walker = new SnmpClient({
+      host, community, version, timeout: API_READ_TIMEOUT_MS, retries: 0,
+    });
+
+    try {
+      const walk = await walker.walkBounded(root, { ...VENDOR_WALK, keepRaw: true });
+      lines.push(...formatVendorWalk(root, vendor, walk));
+    } catch (error) {
+      // The standard table above was already read, so the report is still worth
+      // pasting. Saying which half failed is what keeps it readable.
+      lines.push(
+        `## private branch, ${root} (${vendor ?? 'this manufacturer'})`,
+        `Could not be read: ${(error as Error).message}`,
+        'Everything above still stands — it was read before this failed.',
+      );
+    }
+
     return { ok: true, text: lines.join('\n') };
   }
 

@@ -27,6 +27,38 @@ export interface SnmpOptions {
 /** A value read from the device, already converted out of net-snmp's Buffer form. */
 export type SnmpValue = string | number | Buffer | null;
 
+/** One leaf of a walk: the OID the agent answered on, and what it said. */
+export interface WalkRow {
+  oid: string;
+  value: SnmpValue;
+}
+
+/** What a bounded walk collected, and why it stopped. */
+export interface BoundedWalk {
+  /** Every leaf read, in the order the agent returned them. */
+  rows: WalkRow[];
+  /**
+   * Why the walk stopped before the branch ended, or null when it reached the
+   * end on its own.
+   *
+   * A caller that cannot tell those apart will report a truncated branch as a
+   * complete one, which is worse than not walking it at all: it turns "there is
+   * more down here" into "there is nothing down here".
+   */
+  stoppedBy: 'rows' | 'bytes' | 'time' | null;
+}
+
+/** The ceilings one bounded walk runs under. Every one of them is optional. */
+export interface WalkBudget {
+  maxRows?: number;
+  /** Counted over OIDs and values, as an estimate of the report's size. */
+  maxBytes?: number;
+  /** Wall clock. Zero or absent means no clock, only the row and byte caps. */
+  budgetMs?: number;
+  /** Keep OctetStrings as raw bytes, for branches whose values are structures. */
+  keepRaw?: boolean;
+}
+
 const DEFAULT_TIMEOUT = 5_000;
 const DEFAULT_RETRIES = 1;
 const DEFAULT_PORT = 161;
@@ -324,6 +356,99 @@ export class SnmpClient {
       session.close();
     }
   }
+  /**
+   * Walks a subtree under explicit ceilings, and says which one it hit.
+   *
+   * {@link walk} exists for tables this app knows the shape of, where the only
+   * caps are the absurd ones that separate a printer from something else
+   * answering on port 161. This is for the opposite case: a branch nobody has
+   * read before, walked to show a human what is down there. There the caps are
+   * the point. A vendor branch can run to thousands of rows — that is what a
+   * user actually hit, on a Brother, and the pages of output they sent back
+   * contained the answer in a place neither of us could see.
+   *
+   * The clock can only be checked between replies, because a walk in flight
+   * cannot be interrupted from here. So the real ceiling is the budget plus one
+   * request timeout, and that is why the diagnostic gives its client no retries:
+   * a retried timeout would double the overrun on the one call that cannot
+   * afford it.
+   *
+   * Whatever was collected before a cap is returned, never thrown away. A
+   * partial answer from a printer is worth more than a clean failure.
+   */
+  async walkBounded(rootOid: string, budget: WalkBudget = {}): Promise<BoundedWalk> {
+    const maxRows = Math.min(budget.maxRows ?? MAX_WALK_ROWS, MAX_WALK_ROWS);
+    const maxBytes = Math.min(budget.maxBytes ?? MAX_WALK_BYTES, MAX_WALK_BYTES);
+    const budgetMs = budget.budgetMs ?? 0;
+    const keepRaw = budget.keepRaw ?? false;
+
+    const session = this.openSession();
+    const rows: WalkRow[] = [];
+    const seen = new Set<string>();
+    let bytes = 0;
+    let stoppedBy: BoundedWalk['stoppedBy'] = null;
+    let stopped = false;
+    let clock: ReturnType<typeof setTimeout> | null = null;
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const stop = (reason: NonNullable<BoundedWalk['stoppedBy']>) => {
+          stopped = true;
+          stoppedBy = reason;
+          resolve();
+        };
+
+        if (budgetMs > 0) {
+          clock = setTimeout(() => { if (!stopped) stop('time'); }, budgetMs);
+        }
+
+        session.subtree(
+          rootOid,
+          20,
+          (varbinds: snmp.Varbind[]) => {
+            if (stopped) return;
+
+            for (const vb of varbinds) {
+              if (snmp.isVarbindError(vb)) continue;
+              // An agent that repeats an OID would otherwise fill the row
+              // budget with one value. net-snmp stops on a non-increasing OID,
+              // but this walk is pointed at branches nothing has vetted.
+              if (seen.has(vb.oid)) continue;
+              seen.add(vb.oid);
+
+              const value = keepRaw && Buffer.isBuffer(vb.value) ? vb.value : toValue(vb);
+              rows.push({ oid: vb.oid, value });
+              bytes += vb.oid.length
+                + (typeof value === 'string' ? value.length : Buffer.isBuffer(value) ? value.length * 2 : 8);
+
+              if (rows.length >= maxRows) return stop('rows');
+              if (bytes >= maxBytes) return stop('bytes');
+            }
+          },
+          (error?: Error | null) => {
+            if (stopped) return;
+            if (error) reject(error);
+            else resolve();
+          },
+        );
+      });
+
+      return { rows, stoppedBy };
+    } catch (error) {
+      const message = (error as Error).message;
+
+      // A branch that is simply not there is an answer, and the honest one:
+      // this manufacturer publishes nothing of its own. Same reasoning as
+      // {@link walk}, and the reason the report can say so in words.
+      if (isMissingOidError(message)) return { rows, stoppedBy };
+
+      throw new SnmpUnreachableError(this.host, this.explain(message));
+    } finally {
+      if (clock) clearTimeout(clock);
+      session.close();
+    }
+  }
+
 }
 
 /**
