@@ -85,6 +85,41 @@ here". Nothing in that section is decoded, either: a branch nobody has read has 
 decoder, and inventing one from a single report is how a vendor quirk becomes a wrong
 reading on somebody else's printer.
 
+### The second protocol
+
+Everything above is SNMP, and where a printer implements the Printer-MIB properly
+there is nothing else to want: the MIB carries alerts, covers, media names and a
+lifetime page count that IPP models poorly or not at all.
+
+The problem was never depth. It was that Homey's discovery watches `_ipp._tcp` —
+every printer this app *finds*, it finds by IPP — and the driver then refused to
+pair it unless it also answered SNMP, which more and more printers ship with
+switched off. The app was discovering printers over one protocol and declining to
+read them over it.
+
+Since 1.3.0 it reads both, under one rule, the same one the vendor branch follows:
+
+- **A row the standard table numbered keeps the standard number.** IPP fills only
+  what came back `-1`, `-2` or `-3`.
+- **A printer with no supplies table at all gets IPP's rows outright**, because the
+  alternative is the blank screen its owner has been looking at.
+- **A printer with no SNMP is paired and polled over IPP alone.** Levels, paper,
+  status and the printer's own reasons for having stopped. No page count: IPP
+  defines no printer-level impression counter, and an invented one would be an
+  unknown dressed as a reading.
+- **The page says which is which** — `read over IPP` next to the level, distinct
+  from `manufacturer value`.
+
+The two are closer than they look. IPP's supply levels use the same sentinels as
+RFC 3805 — -1 unavailable, -2 unknown, -3 present but unquantified — so the
+arithmetic in `supplyPercent` applies unchanged. This is a second way of asking the
+same question, not a second model of a printer.
+
+`lib/ipp-client.mts` is the wire: encode, one HTTP round trip, decode. No
+dependency — IPP's encoding is a tag, a name, a length and a value, repeated, and
+every published library wraps it in a transport stack Homey does not need.
+`lib/ipp-printer.mts` is what the answer means, and touches no socket.
+
 ### Finding a printer
 
 Two mechanisms, because neither covers everything on its own.
@@ -114,8 +149,9 @@ confirmed over SNMP before being offered.
 ## Requirements
 
 - The printer must be reachable from Homey on the local network.
-- SNMP must be enabled on the printer. It is on by default on nearly every
-  network printer, with the read community `public`.
+- The printer must answer either SNMP or IPP. SNMP is preferred and carries more,
+  with the read community `public`; a printer with SNMP switched off is paired and
+  read over IPP instead, which every AirPrint or Mopria printer speaks.
 - Give the printer a fixed address in your router. A DHCP lease change is the
   most common reason a working device stops answering.
 
