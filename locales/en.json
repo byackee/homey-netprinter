@@ -58,6 +58,8 @@
     "dump_button": "Produce report",
     "dumping": "Reading the printer…",
     "dump_copy": "Copy",
-    "dump_copied": "Copied"
+    "dump_copied": "Copied",
+    "dump_branch_hint": "Leave empty for the usual report. If a report stopped early and the topic asked for one branch in particular, put that OID here and only it is read.",
+    "firmware": "firmware"
   }
 }

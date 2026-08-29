@@ -58,6 +58,8 @@
     "dump_button": "Rapport maken",
     "dumping": "Printer wordt uitgelezen…",
     "dump_copy": "Kopiëren",
-    "dump_copied": "Gekopieerd"
+    "dump_copied": "Gekopieerd",
+    "dump_branch_hint": "Laat leeg voor het gewone rapport. Is een rapport vroegtijdig gestopt en vraagt het topic om één specifieke tak, zet dan die OID hier — alleen die wordt gelezen.",
+    "firmware": "firmware"
   }
 }

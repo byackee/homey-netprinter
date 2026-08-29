@@ -103,8 +103,8 @@ function stopNote(stoppedBy: BoundedWalk['stoppedBy']): string | null {
       return 'Stopped once the report reached the size a forum post can hold — this branch'
         + ' has more. Say so in the topic and I will narrow the next one.';
     case 'time':
-      return 'Stopped after four seconds, which is all a Homey API call can spare — this'
-        + ' branch has more. Say so in the topic and I will narrow the next one.';
+      return 'Stopped when the time a Homey API call can spare ran out — this branch has'
+        + ' more. Say so in the topic and I will narrow the next one.';
     default:
       return null;
   }

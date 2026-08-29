@@ -206,6 +206,22 @@ describe('ippSerial', () => {
   });
 });
 
+describe('firmware over IPP', () => {
+  /**
+   * The one source for a firmware version that belongs to no brand: IPP defines
+   * the attribute, so a printer whose manufacturer we have no OID for can still
+   * answer it.
+   */
+  it('reads printer-firmware-string-version', () => {
+    const reading = ippReading(attrs({ 'printer-firmware-string-version': ['1.20'] }));
+    assert.equal(reading.firmware, '1.20');
+  });
+
+  it('leaves it null when the printer does not publish one', () => {
+    assert.equal(ippReading(attrs({ 'printer-name': ['MFC'] })).firmware, null);
+  });
+});
+
 describe('ippReading', () => {
   it('assembles what a Canon-shaped reply carries', () => {
     const reading = ippReading(attrs({

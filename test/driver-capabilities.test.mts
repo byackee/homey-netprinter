@@ -116,6 +116,7 @@ describe('every row the app can produce resolves to a real capability', () => {
       model: 'Lexmark C3326dw',
       name: 'LEXMARK',
       serial: 'X',
+      firmware: null,
       enterprise: 641,
       status: 'idle',
       displayText: 'Ready',

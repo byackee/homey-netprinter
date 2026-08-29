@@ -365,15 +365,28 @@ export class IppClient {
  * but a printer that predates the requirement may answer only on `/`. Trying a
  * short list costs one refused connection each and is the difference between
  * supporting that printer and telling its owner it does not speak IPP.
+ *
+ * A refused connection is instant; a dropped packet is not. On a printer behind
+ * a firewall that answers nothing on port 631, every path costs its full
+ * timeout, and four of them outlast the ten seconds a Homey API call gets — so
+ * a caller working to a deadline passes it here rather than discovering
+ * afterwards that the search alone spent the whole budget.
  */
 export async function probeIpp(
   host: string,
   requested: readonly string[] = [],
   timeout?: number,
   paths: readonly string[] = IPP_PATHS,
+  deadlineAt?: number,
 ): Promise<{ client: IppClient; response: IppResponse } | null> {
   for (const path of paths) {
-    const client = new IppClient({ host, path, timeout });
+    const remaining = deadlineAt === undefined ? null : deadlineAt - Date.now();
+    if (remaining !== null && remaining <= 0) return null;
+
+    const attempt = remaining === null
+      ? timeout
+      : Math.min(timeout ?? DEFAULT_TIMEOUT, remaining);
+    const client = new IppClient({ host, path, timeout: attempt });
     try {
       const response = await client.getPrinterAttributes(requested);
       if (isSuccessful(response.statusCode) && response.attributes.size > 0) {

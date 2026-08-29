@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { suggestDeviceName, vendorName } from '../lib/vendors.mjs';
+import { firmwareOid, suggestDeviceName, vendorName } from '../lib/vendors.mjs';
 
 describe('vendorName', () => {
   it('names the manufacturers we know', () => {
@@ -13,6 +13,23 @@ describe('vendorName', () => {
   it('returns null for an unknown number, which means unbranded, not unsupported', () => {
     assert.equal(vendorName(999999), null);
     assert.equal(vendorName(null), null);
+  });
+});
+
+describe('firmwareOid', () => {
+  it('points at the branch each brand answers on', () => {
+    assert.equal(firmwareOid(2435), '1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.17.0');
+    assert.equal(firmwareOid(1602), '1.3.6.1.4.1.1602.1.1.1.4.0');
+  });
+
+  /**
+   * The Printer-MIB has no firmware OID, so a brand nobody has sent a report
+   * for has nowhere to look. Guessing at one would put a wrong version on a
+   * settings page, which is worse than an empty field.
+   */
+  it('has nothing to offer for a brand nobody has reported', () => {
+    assert.equal(firmwareOid(1248), null);
+    assert.equal(firmwareOid(null), null);
   });
 });
 

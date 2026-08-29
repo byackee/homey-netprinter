@@ -43,7 +43,10 @@ function sources(over: Partial<DumpReportSources> = {}): DumpReportSources {
     version: 'v2c',
     identity: identity(1602),
     vendor: 'Canon',
+    firmware: '4.000',
     supplies: [supply()],
+    branch: null,
+    deadlineAt: Date.now() + 5_000,
     walkVendorBranch: async () => walked([{ oid: '1.3.6.1.4.1.1602.1', value: 42 }]),
     brotherSection: async () => ['## Brother private branch, raw', '(brother lines)'],
     ippSection: async () => ['', '## IPP', 'answered at ipp://192.168.1.42/ipp/print'],
@@ -256,5 +259,78 @@ describe('buildDumpReport, against the clock', () => {
     }));
 
     assert.ok(text.indexOf('## IPP') > text.indexOf('1.3.6.1.4.1.1602.1'), text);
+  });
+  /**
+   * The regression this deadline exists for. A section that never answers used
+   * to take the whole report with it: the endpoint hit Homey's ten-second cut
+   * and the user got a timeout where the version before had given them a
+   * report they could paste.
+   */
+  it('returns the report when a section never answers', async () => {
+    const text = await buildDumpReport(sources({
+      deadlineAt: Date.now() + 30,
+      ippSection: () => new Promise<string[]>(() => {}),
+    }));
+
+    assert.match(text, /## prtMarkerSuppliesTable/);
+    assert.match(text, /1\.3\.6\.1\.4\.1\.1602\.1/);
+    assert.match(text, /## IPP/);
+    assert.match(text, /ran out first/);
+  });
+
+  it('keeps IPP when it is the private branch that hangs', async () => {
+    const text = await buildDumpReport(sources({
+      deadlineAt: Date.now() + 30,
+      walkVendorBranch: () => new Promise<never>(() => {}),
+    }));
+
+    assert.match(text, /## private branch/);
+    assert.match(text, /ran out first/);
+    assert.match(text, /answered at ipp:/);
+  });
+
+  it('names the firmware version in the header', async () => {
+    const text = await buildDumpReport(sources());
+    assert.match(text, /^firmware {4}4\.000$/m);
+  });
+
+  it('says so rather than lying when no firmware was found', async () => {
+    const text = await buildDumpReport(sources({ firmware: null }));
+    assert.match(text, /^firmware {4}—$/m);
+  });
+  /**
+   * The follow-through on what a truncated report promises its reader. Tom's
+   * Canon stopped at the size cap part-way through the document its ink levels
+   * live in; pointed at that document, the next report starts there.
+   */
+  it('reads the one branch it was pointed at, and says which', async () => {
+    const asked: string[] = [];
+    const text = await buildDumpReport(sources({
+      branch: '1.3.6.1.4.1.1602.1.5.1.6.2.2',
+      walkVendorBranch: async (root) => {
+        asked.push(root);
+        return walked([{ oid: `${root}.1`, value: 'PM 10 R 80' }]);
+      },
+    }));
+
+    assert.deepEqual(asked, ['1.3.6.1.4.1.1602.1.5.1.6.2.2']);
+    assert.match(text, /## private branch, 1\.3\.6\.1\.4\.1\.1602\.1\.5\.1\.6\.2\.2/);
+    assert.match(text, /PM 10 R 80/);
+  });
+
+  /**
+   * Brother is the one brand with a decoder, and the decoder reads six OIDs it
+   * already knows. Someone naming a branch is asking for the branch.
+   */
+  it('walks a named branch on a Brother rather than running the decoder', async () => {
+    const text = await buildDumpReport(sources({
+      identity: identity(BROTHER_ENTERPRISE),
+      vendor: 'Brother',
+      branch: '1.3.6.1.4.1.2435.2.4.3',
+      walkVendorBranch: async (root) => walked([{ oid: `${root}.9`, value: 7 }]),
+    }));
+
+    assert.doesNotMatch(text, /brother lines/);
+    assert.match(text, /1\.3\.6\.1\.4\.1\.2435\.2\.4\.3\.9/);
   });
 });

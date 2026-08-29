@@ -77,7 +77,7 @@ describe('formatVendorWalk', () => {
     for (const [stoppedBy, expected] of [
       ['rows', String(VENDOR_WALK.maxRows)],
       ['bytes', 'forum post can hold'],
-      ['time', 'four seconds'],
+      ['time', 'ran out'],
     ] as const) {
       const text = formatVendorWalk('1.3.6.1.4.1.11', 'HP', walk(rows, stoppedBy)).join('\n');
       assert.ok(text.includes('this branch has more'), `${stoppedBy}: ${text}`);

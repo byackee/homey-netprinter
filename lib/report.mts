@@ -38,25 +38,68 @@ export interface DumpReportSources {
   identity: PrinterIdentity;
   /** The manufacturer's name, when the enterprise number names one. */
   vendor: string | null;
+  /** Firmware version, from whichever source had one. */
+  firmware: string | null;
   /** The standard table, as the app itself read it. */
   supplies: Supply[];
+  /**
+   * One branch to read instead of the manufacturer's whole private branch.
+   *
+   * Null for an ordinary report. A report that stopped at a cap says so and
+   * asks its reader to say where to look next; this is what that promise is
+   * worth. A Canon owner's report ran out of room part-way through the document
+   * their printer keeps its ink levels in — with the root of that document
+   * here, the next report starts where the last one stopped instead of hoping
+   * the cap falls in a luckier place.
+   */
+  branch: string | null;
   /** Walks the manufacturer's own branch, bounded. */
   walkVendorBranch(root: string): Promise<BoundedWalk>;
   /** Brother's private branch, raw and decoded — the one brand with a decoder. */
   brotherSection(): Promise<string[]>;
   /** What the printer answers over IPP. */
   ippSection(): Promise<string[]>;
+  /**
+   * When this report has to be finished, as an epoch time.
+   *
+   * A Homey API call is cut off at ten seconds, and a report that overruns is
+   * not a late report — it is no report at all, which is exactly what a Canon
+   * owner got after the IPP section started running for every brand. Each
+   * section that needs the printer is raced against this, so running out of
+   * time costs that section and nothing else.
+   */
+  deadlineAt: number;
+}
+
+/**
+ * A section, or a note saying it ran out of time.
+ *
+ * The work is left running rather than cancelled: an SNMP session and an HTTP
+ * request each close themselves, and nothing here can hurry a printer. What
+ * matters is that the report stops waiting for one.
+ */
+function inTime(work: Promise<string[]>, deadlineAt: number, ranOut: string[]): Promise<string[]> {
+  let timer: NodeJS.Timeout | null = null;
+
+  const clock = new Promise<string[]>((resolve) => {
+    timer = setTimeout(() => resolve(ranOut), Math.max(0, deadlineAt - Date.now()));
+  });
+
+  return Promise.race([work, clock]).finally(() => {
+    if (timer !== null) clearTimeout(timer);
+  });
 }
 
 /** The lines above the first section: who answered, and how. */
 function header(sources: DumpReportSources): string[] {
-  const { host, community, version, identity, vendor } = sources;
+  const { host, community, version, identity, vendor, firmware } = sources;
   return [
     `# ${[vendor, identity.model].filter(Boolean).join(' ') || host}`,
     `host        ${host}`,
     `snmp        ${version}, community "${community}"`,
     `sysObjectID enterprise ${identity.enterprise ?? 'unknown'}${vendor ? ` (${vendor})` : ''}`,
     `serial      ${identity.serial ?? '—'}`,
+    `firmware    ${firmware ?? '—'}`,
     '',
   ];
 }
@@ -97,7 +140,22 @@ function standardTable(supplies: Supply[]): string[] {
  * missing again.
  */
 async function privateBranch(sources: DumpReportSources): Promise<string[]> {
-  const { identity, vendor } = sources;
+  const { identity, vendor, branch } = sources;
+
+  // A branch asked for by name is read as asked, whoever made the printer. The
+  // Brother decoder below reads six OIDs it knows; that is the opposite of what
+  // someone naming a branch wants, and it would silently ignore them.
+  if (branch !== null) {
+    try {
+      return formatVendorWalk(branch, vendor, await sources.walkVendorBranch(branch));
+    } catch (error) {
+      return [
+        `## private branch, ${branch} (${vendor ?? 'this manufacturer'})`,
+        `Could not be read: ${(error as Error).message}`,
+        'Everything above still stands — it was read before this failed.',
+      ];
+    }
+  }
 
   if (identity.enterprise === null) {
     return [
@@ -147,23 +205,37 @@ export async function buildDumpReport(sources: DumpReportSources): Promise<strin
   // after the other and this section goes missing again for a new reason, a
   // timeout, on exactly the printers it was added for. Overlapped, IPP costs the
   // report nothing.
-  const ipp = (async (): Promise<string[]> => {
-    try {
-      return await sources.ippSection();
-    } catch (error) {
-      return [
-        '',
-        '## IPP',
-        `Could not be read: ${(error as Error).message}`,
-        'Everything above still stands — it was read before this failed.',
-      ];
-    }
-  })();
+  const ipp = inTime(
+    (async (): Promise<string[]> => {
+      try {
+        return await sources.ippSection();
+      } catch (error) {
+        return [
+          '',
+          '## IPP',
+          `Could not be read: ${(error as Error).message}`,
+          'Everything above still stands — it was read before this failed.',
+        ];
+      }
+    })(),
+    sources.deadlineAt,
+    [
+      '',
+      '## IPP',
+      'Not read: the ten seconds a Homey API call gets ran out first. A printer that',
+      'answers nothing on port 631 costs one timeout per path tried, which is the',
+      'usual reason to see this. Say so in the topic and I will narrow the search.',
+    ],
+  );
 
   return [
     ...header(sources),
     ...standardTable(sources.supplies),
-    ...await privateBranch(sources),
+    ...await inTime(privateBranch(sources), sources.deadlineAt, [
+      '## private branch',
+      'Not read: the ten seconds a Homey API call gets ran out first. Everything above',
+      'still stands, and the section below was read alongside this one.',
+    ]),
     ...await ipp,
   ].join('\n');
 }

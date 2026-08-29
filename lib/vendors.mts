@@ -6,6 +6,8 @@
  * else. Adding a brand here must never become a prerequisite for support.
  */
 
+import { BROTHER_OID } from './vendors/brother.mjs';
+
 /** IANA Private Enterprise Numbers of printer manufacturers. */
 const ENTERPRISES: Record<number, string> = {
   2: 'IBM',
@@ -53,6 +55,28 @@ const ENTERPRISES: Record<number, string> = {
 export function vendorName(enterprise: number | null): string | null {
   if (enterprise === null) return null;
   return ENTERPRISES[enterprise] ?? null;
+}
+
+/**
+ * Where a manufacturer publishes its firmware version.
+ *
+ * The Printer-MIB gives a printer a serial number and no firmware version:
+ * there is no standard OID to read, which is why this table exists at all and
+ * why it is short. Every entry is an OID seen answering on a real printer, in a
+ * report from its owner. A brand that is not here shows no version rather than
+ * a guessed one — and IPP publishes it in a standard attribute regardless of
+ * brand, which is the source this table exists to complement, not to replace.
+ */
+const FIRMWARE_OIDS: Record<number, string> = {
+  // Answered "4.000" on a PRO-1000, next to the model in the same branch.
+  1602: '1.3.6.1.4.1.1602.1.1.1.4.0',
+  2435: BROTHER_OID.firmware,
+};
+
+/** The firmware OID for a manufacturer, or null when we know of none. */
+export function firmwareOid(enterprise: number | null): string | null {
+  if (enterprise === null) return null;
+  return FIRMWARE_OIDS[enterprise] ?? null;
 }
 
 /**

@@ -58,6 +58,8 @@
     "dump_button": "Produire le rapport",
     "dumping": "Lecture de l’imprimante…",
     "dump_copy": "Copier",
-    "dump_copied": "Copié"
+    "dump_copied": "Copié",
+    "dump_branch_hint": "Laissez vide pour le rapport habituel. Si un rapport s’est arrêté en route et que le sujet demande une branche précise, indiquez cet OID ici : lui seul sera lu.",
+    "firmware": "micrologiciel"
   }
 }

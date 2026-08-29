@@ -57,6 +57,7 @@ export const IPP_ATTRIBUTES: readonly string[] = [
   'printer-info',
   'printer-device-id',
   'printer-uuid',
+  'printer-firmware-string-version',
   'marker-names',
   'marker-levels',
   'marker-colors',
@@ -73,6 +74,14 @@ export interface IppReading {
   model: string | null;
   name: string | null;
   serial: string | null;
+  /**
+   * `printer-firmware-string-version` — the version as the printer writes it.
+   *
+   * The one source for this that is neither a brand's private branch nor a
+   * guess pulled out of a model string: IPP defines the attribute, so a printer
+   * that answers IPP at all may answer this whoever made it.
+   */
+  firmware: string | null;
   status: PrinterStatus;
   /** `printer-state-reasons`, verbatim. The printer's own words for what is wrong. */
   stateReasons: string[];
@@ -404,6 +413,7 @@ export function ippReading(attrs: IppAttributes): IppReading {
     model: firstText(attrs, 'printer-make-and-model') ?? packedModel,
     name: firstText(attrs, 'printer-name') ?? firstText(attrs, 'printer-info'),
     serial: ippSerial(attrs),
+    firmware: firstText(attrs, 'printer-firmware-string-version'),
     status: ippStatus(attrs),
     stateReasons: textList(attrs, 'printer-state-reasons').filter((r) => r.length > 0 && r !== 'none'),
     displayText: firstText(attrs, 'printer-state-message'),

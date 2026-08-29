@@ -51,6 +51,7 @@ function snapshot(overrides: Partial<PrinterSnapshot> = {}): PrinterSnapshot {
     model: 'EPSON XP-6100 Series',
     name: 'EPSONC618AD',
     serial: 'X5CW048422',
+    firmware: null,
     enterprise: 1248,
     status: 'idle',
     displayText: 'Ready',

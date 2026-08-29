@@ -39,6 +39,7 @@ import {
 } from './vendors/brother.mjs';
 import { IPP_ATTRIBUTES, fillFromIpp, ippReading, type IppReading } from './ipp-printer.mjs';
 import { IppClient, IppError, probeIpp } from './ipp-client.mjs';
+import { firmwareOid } from './vendors.mjs';
 
 /**
  * How long to leave a printer alone after it answered no IPP.
@@ -57,6 +58,14 @@ export interface PrinterSnapshot {
   name: string | null;
   /** Serial number — the identity a paired device is keyed on. */
   serial: string | null;
+  /**
+   * Firmware version, as the printer writes it. Null when it will not say.
+   *
+   * Read once per reader and remembered: it changes only when someone updates
+   * the printer, and the sources it comes from are a request the poll would
+   * otherwise not make.
+   */
+  firmware: string | null;
   /** IANA enterprise number of the manufacturer, e.g. 1248 for Epson. */
   enterprise: number | null;
   status: PrinterStatus;
@@ -210,10 +219,41 @@ export class PrinterReader {
    * silent probe is a printer that is asleep, not one that does not speak it.
    */
   private ippSilentUntil = 0;
+  /**
+   * The firmware version, once anything has answered with one.
+   *
+   * Cached because neither source is free: the SNMP one is an OID outside every
+   * batch this poll already sends, and the IPP one only arrives when something
+   * else already needed IPP. A version changes when a human updates the
+   * printer, so a reader that outlives the app restart would be wrong; one that
+   * lives as long as the settings it was built from is not.
+   */
+  private firmware: string | null = null;
+  /** True once the SNMP source has been asked, whatever it answered. */
+  private firmwareAsked = false;
+  /** What the last IPP reading said the firmware was, when it said anything. */
+  private lastIppFirmware: string | null = null;
 
-  constructor(host: string, community: string, version: SnmpVersion | null, timeout?: number) {
+  /**
+   * When IPP probing must give up, as an epoch time.
+   *
+   * Only the diagnostic endpoint sets one. A poll has no wall clock to answer
+   * to, but a Homey API call is cut off at ten seconds, and looking for the
+   * path a silent printer answers on costs one timeout per path tried — enough,
+   * on its own, to lose the whole report.
+   */
+  private readonly ippDeadlineAt: number | null;
+
+  constructor(
+    host: string,
+    community: string,
+    version: SnmpVersion | null,
+    timeout?: number,
+    ippDeadlineAt?: number,
+  ) {
     this.host = host;
     this.timeout = timeout;
+    this.ippDeadlineAt = ippDeadlineAt ?? null;
     this.snmpEnabled = version !== null;
     // Constructed either way: a client opens no socket until it is asked
     // something, so an unused one costs nothing and spares every method below a
@@ -306,10 +346,15 @@ export class PrinterReader {
     // guarantee: a second source that fails must cost the poll nothing.
     const ipp = await this.readIpp(supplies, inputTrays).catch(() => null);
 
+    // After IPP, because IPP is the brand-independent source and it has just
+    // run or just been skipped; either way this makes no request it can avoid.
+    const firmware = await this.readFirmware(enterprise).catch(() => null);
+
     return {
       model: asString(scalars.get(OID.hrDeviceDescr)) ?? asString(scalars.get(OID.prtGeneralPrinterName)),
       name: asString(scalars.get(OID.sysName)),
       serial: asString(scalars.get(OID.prtGeneralSerialNumber)),
+      firmware,
       enterprise,
       status: resolveStatus(
         decodePrinterStatus(asNumber(scalars.get(OID.hrPrinterStatus))),
@@ -347,6 +392,7 @@ export class PrinterReader {
       model: reading.model,
       name: reading.name,
       serial: reading.serial,
+      firmware: reading.firmware,
       enterprise: null,
       status: reading.status,
       displayText: reading.displayText,
@@ -387,7 +433,7 @@ export class PrinterReader {
     if (this.ipp !== null) {
       try {
         const response = await this.ipp.getPrinterAttributes(IPP_ATTRIBUTES);
-        return { reading: ippReading(response.attributes), uri: this.ipp.printerUri };
+        return this.remember({ reading: ippReading(response.attributes), uri: this.ipp.printerUri });
       } catch {
         // The path that worked has stopped working. A firmware update moves one
         // occasionally, and a printer that has just woken up refuses one round
@@ -396,11 +442,62 @@ export class PrinterReader {
       }
     }
 
-    const found = await probeIpp(this.host, IPP_ATTRIBUTES, this.timeout);
+    const found = await probeIpp(
+      this.host,
+      IPP_ATTRIBUTES,
+      this.timeout,
+      undefined,
+      this.ippDeadlineAt ?? undefined,
+    );
     if (found === null) return null;
 
     this.ipp = found.client;
-    return { reading: ippReading(found.response.attributes), uri: found.client.printerUri };
+    return this.remember({ reading: ippReading(found.response.attributes), uri: found.client.printerUri });
+  }
+
+  /** Keeps what an IPP reading said about firmware, for {@link readFirmware}. */
+  private remember(found: { reading: IppReading; uri: string }): { reading: IppReading; uri: string } {
+    if (found.reading.firmware !== null) this.lastIppFirmware = found.reading.firmware;
+    return found;
+  }
+
+  /**
+   * The firmware version, from whichever source has one.
+   *
+   * Asked for because the official app of at least one brand shows it and this
+   * one did not, on a printer whose firmware this app has been reading into a
+   * diagnostic report all along without ever putting it on screen.
+   *
+   * Order matters and is not the obvious one. IPP first, because
+   * `printer-firmware-string-version` is a standard attribute that any brand
+   * may answer — but only if an IPP read has already happened for another
+   * reason, since one HTTP round trip for a version string is not worth adding
+   * to a poll. The manufacturer's own OID second, and only for a brand whose
+   * OID somebody has actually seen answer.
+   *
+   * Once, either way. `firmwareAsked` records that the question was put, not
+   * that it was answered: a printer with no version to give must not be asked
+   * again every five minutes for the rest of its life.
+   */
+  private async readFirmware(enterprise: number | null): Promise<string | null> {
+    if (this.firmware !== null) return this.firmware;
+
+    if (this.lastIppFirmware !== null) {
+      this.firmware = this.lastIppFirmware;
+      return this.firmware;
+    }
+
+    if (this.firmwareAsked) return null;
+
+    const oid = firmwareOid(enterprise);
+    if (oid === null) return null;
+
+    // Set after the request, not before: a printer that was asleep for this one
+    // poll has not answered the question, and must be asked again next time.
+    const answer = await this.client.get([oid]);
+    this.firmwareAsked = true;
+    this.firmware = asString(answer.get(oid));
+    return this.firmware;
   }
 
   /**

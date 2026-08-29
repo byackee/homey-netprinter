@@ -38,6 +38,18 @@ import {
 const API_READ_TIMEOUT_MS = 2_500;
 
 /**
+ * What the report is allowed to spend, of the ten seconds Homey allows.
+ *
+ * The remaining two are for assembling and returning it. Every step of a report
+ * now works to this one deadline rather than to a budget of its own, because
+ * the budgets were what overran: a version negotiation, a full read, a bounded
+ * walk and an IPP search each had a defensible limit, and their sum did not
+ * fit. A Canon owner on 1.3.1 pressed the button and got a timeout where 1.3.0
+ * had given them a report.
+ */
+const REPORT_BUDGET_MS = 8_000;
+
+/**
  * How many IPP attributes one report prints.
  *
  * A printer asked for everything answers with a hundred-odd attributes, most of
@@ -45,6 +57,15 @@ const API_READ_TIMEOUT_MS = 2_500;
  * is, and short of the point where nobody reads the report.
  */
 const IPP_REPORT_ATTRIBUTES = 80;
+
+/**
+ * An OID and nothing else.
+ *
+ * This value is walked on the user's own network, so it is checked rather than
+ * trusted: numbers separated by dots is the whole of what an OID is, and
+ * anything else is a mistake worth naming before a printer is asked about it.
+ */
+const OID_SHAPE = /^\d+(\.\d+)+$/;
 
 /** The shape Homey hands every endpoint. */
 interface Request {
@@ -63,6 +84,8 @@ interface DeviceReport {
   /** The live reading, or the reason it could not be taken. */
   reading?: {
     model: string | null;
+    /** Firmware version, as the printer writes it. */
+    firmware: string | null;
     status: string;
     display: string | null;
     pages: number | null;
@@ -165,6 +188,7 @@ async function getDiagnostics({ homey }: Request): Promise<{
         ...base,
         reading: {
           model: snapshot.model,
+          firmware: snapshot.firmware,
           status: snapshot.status,
           display: snapshot.displayText,
           pages: snapshot.pageCount,
@@ -354,23 +378,52 @@ async function getTrace({ homey }: Request): Promise<{
  * that used to end at the private branch for every brand but one — see the note
  * at the top of that module.
  */
-async function postDump({ body }: Request): Promise<{
+async function postDump({ homey, body }: Request): Promise<{
   ok: boolean;
   message?: string;
   text?: string;
 }> {
+  const deadlineAt = Date.now() + REPORT_BUDGET_MS;
+
   const host = String(body.host ?? '').trim();
   const community = String(body.community ?? 'public').trim() || 'public';
+  const branch = String(body.branch ?? '').trim();
 
   if (!host) return { ok: false, message: 'Enter an IP address.' };
+  if (branch !== '' && !OID_SHAPE.test(branch)) {
+    return { ok: false, message: `"${branch}" is not an OID. Numbers separated by dots, e.g. 1.3.6.1.4.1.1602.1.5.` };
+  }
 
-  const version = await negotiateVersion(host, community, API_READ_TIMEOUT_MS);
+  // A printer already paired has been read for months on a version somebody
+  // negotiated once. Asking again costs a full timeout on every printer that
+  // answers only v1 — a third of the whole budget, spent to learn what the
+  // device settings already say.
+  const paired = pairedVersion(homey, host);
+  let version = paired ?? await negotiateVersion(host, community, API_READ_TIMEOUT_MS);
   if (version === null) {
     return { ok: false, message: `No SNMP answer from ${host} on v2c or v1.` };
   }
 
-  const reader = new PrinterReader(host, community, version, API_READ_TIMEOUT_MS);
-  const identity = await reader.readIdentity();
+  let reader = new PrinterReader(host, community, version, API_READ_TIMEOUT_MS, deadlineAt);
+  let identity = await reader.readIdentity().catch(() => null);
+
+  // The stored version is a shortcut, not a fact: a printer whose firmware
+  // update switched v2c off still carries whatever it was paired on. Ask
+  // properly rather than hand back a report of a printer that "does not
+  // answer" — which is the state this whole endpoint exists to explain.
+  if (identity === null && paired !== null) {
+    const found = await negotiateVersion(host, community, API_READ_TIMEOUT_MS);
+    if (found === null) {
+      return { ok: false, message: `No SNMP answer from ${host} on v2c or v1.` };
+    }
+    // The header says which version answered, and the sections below are read
+    // on it — a report naming the version that failed would be worse than none.
+    version = found;
+    reader = new PrinterReader(host, community, version, API_READ_TIMEOUT_MS, deadlineAt);
+    identity = await reader.readIdentity();
+  }
+  if (identity === null) throw new Error(`No answer from ${host}`);
+
   const snapshot = await reader.read();
 
   const text = await buildDumpReport({
@@ -378,19 +431,51 @@ async function postDump({ body }: Request): Promise<{
     community,
     version,
     identity,
+    firmware: snapshot.firmware,
     vendor: vendorName(identity.enterprise),
     supplies: snapshot.supplies,
+    branch: branch === '' ? null : branch,
+    deadlineAt,
     // No retries: the clock in walkBounded can only be checked between replies,
     // so a retried timeout is the one thing that can still overrun the ten
     // seconds this call gets.
     walkVendorBranch: (root) => new SnmpClient({
       host, community, version, timeout: API_READ_TIMEOUT_MS, retries: 0,
-    }).walkBounded(root, { ...VENDOR_WALK, keepRaw: true }),
+    }).walkBounded(root, { ...VENDOR_WALK, budgetMs: walkBudgetMs(deadlineAt), keepRaw: true }),
     brotherSection: () => brotherSection(host, community, version, snapshot.supplies),
-    ippSection: () => ippSection(host),
+    ippSection: () => ippSection(host, deadlineAt),
   });
 
   return { ok: true, text };
+}
+
+/**
+ * The SNMP version a paired device is already read on, when this address is one.
+ *
+ * Null for an address nobody has paired, and for a device set to IPP — that one
+ * has no SNMP version to reuse, so the negotiation is the honest thing to do.
+ */
+function pairedVersion(homey: Request['homey'], host: string): SnmpVersion | null {
+  const devices = homey.drivers.getDriver('printer').getDevices();
+  for (const device of devices) {
+    if (String(device.getSetting('host') ?? '') !== host) continue;
+    const version = String(device.getSetting('version') ?? '');
+    if (version === 'v1' || version === 'v2c') return version;
+  }
+  return null;
+}
+
+/**
+ * What is left for the vendor walk, which is the one section that can be told
+ * when to stop.
+ *
+ * It keeps its four seconds when there are four to spare and gives them back
+ * when there are not, down to a floor worth a round trip. A second is held back
+ * for assembling the report: the walk is the last thing that has to finish, and
+ * a walk that runs to the deadline leaves nothing to return.
+ */
+function walkBudgetMs(deadlineAt: number): number {
+  return Math.max(1_000, Math.min(VENDOR_WALK.budgetMs, deadlineAt - Date.now() - 1_000));
 }
 
 /**
@@ -458,10 +543,11 @@ async function brotherSection(
  * `all` rather than the poll's short list: this is not the hot path, and an
  * attribute nobody thought to ask for is precisely what a diagnostic is for.
  */
-async function ippSection(host: string): Promise<string[]> {
+async function ippSection(host: string, deadlineAt: number): Promise<string[]> {
   const lines = ['', '## IPP'];
 
-  const found = await probeIpp(host, ['all'], API_READ_TIMEOUT_MS).catch(() => null);
+  const found = await probeIpp(host, ['all'], API_READ_TIMEOUT_MS, undefined, deadlineAt)
+    .catch(() => null);
   if (found === null) {
     lines.push(
       'No IPP answer on any of the usual paths. On a printer that Homey found by',

@@ -19,7 +19,7 @@ import {
   type PrinterSnapshot,
   type ReadProtocol,
 } from '../../lib/printer-reader.mjs';
-import { SnmpUnreachableError, type SnmpVersion } from '../../lib/snmp-client.mjs';
+import { SnmpUnreachableError, negotiateVersion, type SnmpVersion } from '../../lib/snmp-client.mjs';
 
 /** What pairing stored on the device; the address can later be corrected in settings. */
 interface PrinterSettings {
@@ -48,12 +48,29 @@ const DEFAULT_FAILURES_BEFORE_UNAVAILABLE = 3;
 /** How long one whole read may take before the poll is failed. See withDeadline. */
 const POLL_DEADLINE_MS = 120_000;
 
+/**
+ * How long each version gets when the stored one has stopped working.
+ *
+ * Short on purpose: this runs against a printer that has already missed several
+ * polls, so the likeliest answer is silence on both versions, and nothing waits
+ * on it — the device is about to be marked unavailable either way.
+ */
+const RENEGOTIATE_TIMEOUT_MS = 2_000;
+
 export default class PrinterDevice extends Homey.Device {
   private reader!: PrinterReader;
   private timer: NodeJS.Timeout | null = null;
   private consecutiveFailures = 0;
   /** Guards against a slow poll overlapping the next tick. */
   private polling = false;
+  /**
+   * Whether this outage has already had its SNMP version questioned.
+   *
+   * One negotiation per outage, not one per poll: a printer that is simply off
+   * would otherwise be interrogated on two versions every five minutes for as
+   * long as it stays off.
+   */
+  private renegotiated = false;
   /** Last values seen, so Flow triggers fire on change rather than on every poll. */
   private lastStatus: string | null = null;
   private lastPageCount: number | null = null;
@@ -211,8 +228,10 @@ export default class PrinterDevice extends Homey.Device {
     try {
       const snapshot = await this.withDeadline(this.reader.read());
       this.consecutiveFailures = 0;
+      this.renegotiated = false;
       if (!this.getAvailable()) await this.setAvailable();
       await this.applySnapshot(snapshot);
+      await this.rememberFirmware(snapshot.firmware);
       this.lastPoll = { at: new Date().toISOString(), outcome: 'ok' };
     } catch (error) {
       this.lastPoll = { at: new Date().toISOString(), outcome: `failed: ${(error as Error).message}` };
@@ -271,8 +290,68 @@ export default class PrinterDevice extends Homey.Device {
       return;
     }
 
+    // The last thing tried before telling a user their printer is broken.
+    if (await this.renegotiateVersion()) return;
+
     this.error(message);
     await this.setUnavailable(this.homey.__('device.unreachable')).catch(() => {});
+  }
+
+  /**
+   * Asks which SNMP version this printer answers on, once per outage.
+   *
+   * A wrong version does not look like a wrong version. It looks like a printer
+   * that has stopped answering: the same timeout, the same greyed tile, the
+   * same repair screen — and the printer is on the whole time, answering
+   * anything that asks it correctly. Pairing negotiates, so this can only be a
+   * device whose printer changed under it, which happens: a firmware update
+   * turns v2c off, or a setting is restored from a backup taken elsewhere.
+   *
+   * Only when there is another version to move to, and only after the failures
+   * that would otherwise have marked the device unavailable, so a sleeping
+   * printer is never interrogated on the strength of one missed poll.
+   */
+  private async renegotiateVersion(): Promise<boolean> {
+    if (this.renegotiated) return false;
+    this.renegotiated = true;
+
+    const { host, community, version } = this.readSettings();
+    // IPP is not an SNMP version and has nothing to negotiate against.
+    if (version === 'ipp') return false;
+
+    const found = await negotiateVersion(host, community, RENEGOTIATE_TIMEOUT_MS).catch(() => null);
+    if (found === null || found === version) return false;
+
+    this.log(`${host} no longer answers ${version} but does answer ${found} — switching`);
+    await this.setSettings({ version: found }).catch((e: Error) =>
+      this.error(`Could not store the version: ${e.message}`));
+
+    // setSettings() from code does not fire onSettings(), so the reader that
+    // reads the settings has to be rebuilt here.
+    this.buildReader();
+    this.consecutiveFailures = 0;
+
+    // On the next tick, because this runs inside the failed poll that found the
+    // problem and `polling` is still set. Without it the tile keeps saying
+    // offline for a whole poll interval after the version was corrected.
+    this.homey.setTimeout(() => { void this.poll(); }, 500);
+    return true;
+  }
+
+  /**
+   * Stores the firmware version where a user can read it.
+   *
+   * Written to settings rather than to a capability: it is a fact about the
+   * printer, not a measurement, and a capability would give it an Insights
+   * graph of a string that changes once a year. Written only when it changes,
+   * because storing a setting is persistent and this runs on every poll.
+   */
+  private async rememberFirmware(firmware: string | null): Promise<void> {
+    if (firmware === null) return;
+    if (String(this.getSetting('firmware') ?? '') === firmware) return;
+
+    await this.setSettings({ firmware }).catch((e: Error) =>
+      this.error(`Could not store the firmware version: ${e.message}`));
   }
 
   /** Lifts the unavailable flag if it is set. Safe to call when it is not. */

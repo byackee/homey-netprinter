@@ -5,6 +5,7 @@ import {
   decodeResponse,
   encodeGetPrinterAttributes,
   isSuccessful,
+  probeIpp,
   type IppValue,
 } from '../lib/ipp-client.mjs';
 
@@ -144,5 +145,23 @@ describe('decodeResponse', () => {
 
   it('refuses something too short to be IPP at all', () => {
     assert.throws(() => decodeResponse(Buffer.from([1, 1, 0])), /too short/);
+  });
+});
+
+describe('probeIpp', () => {
+  /**
+   * A printer that drops packets on port 631 costs a full timeout per path
+   * tried, and four of those outlast the ten seconds a Homey API call gets.
+   * With the deadline already gone there is nothing left to spend, so the
+   * search must not start — which is what keeps the report that called it.
+   */
+  it('does not open a connection once the deadline has passed', async () => {
+    const started = Date.now();
+    // 203.0.113.0/24 is reserved for documentation and routes nowhere, so a
+    // probe that ignored the deadline would sit here until it timed out.
+    const found = await probeIpp('203.0.113.1', [], 5_000, undefined, Date.now() - 1);
+
+    assert.equal(found, null);
+    assert.ok(Date.now() - started < 500, `took ${Date.now() - started}ms`);
   });
 });
