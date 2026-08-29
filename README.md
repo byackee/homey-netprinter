@@ -78,12 +78,36 @@ of the request. Homey is already on the same network as the printer; it can ask.
 
 For a while it only asked on behalf of one brand, which made it useless to everyone
 who still needed it. Reading an unknown branch is now bounded instead of skipped —
-250 rows, 20 kB, four seconds — and the report names whichever of those it hit. A
-Homey API call is cut off at ten seconds, and a report that showed a truncated branch
-as a complete one would turn "there is more down here" into "there is nothing down
-here". Nothing in that section is decoded, either: a branch nobody has read has no
-decoder, and inventing one from a single report is how a vendor quirk becomes a wrong
-reading on somebody else's printer.
+250 rows, 20 kB, and up to four seconds of whatever the call has left — and the report
+names whichever of those it hit. A report that showed a truncated branch as a complete
+one would turn "there is more down here" into "there is nothing down here". Nothing in
+that section is decoded, either: a branch nobody has read has no decoder, and inventing
+one from a single report is how a vendor quirk becomes a wrong reading on somebody
+else's printer.
+
+A report that stopped at a cap can be pointed at one branch, which is what the caps
+promise its reader when they say so. That branch is read as asked whoever made the
+printer — the Brother decoder reads six OIDs it already knows, which is the opposite
+of what naming a branch means — and a printer whose levels sit in a document longer
+than the size cap can be read a piece at a time instead of hoping the cap lands
+somewhere useful.
+
+### Ten seconds, spent once
+
+A Homey API call is cut off at ten seconds, and the report is the one thing here that
+can spend them. It very nearly did: a version negotiation, a full read, a bounded walk
+and an IPP path search each had a defensible limit, and their sum did not fit. What
+that cost was not a late report but no report at all, on the printers most in need of
+one.
+
+So there is one deadline, set where the call begins and passed to everything under it.
+The SNMP version comes from the paired device rather than being negotiated again — on
+a printer that answers only v1, negotiating costs a quarter of the budget to learn
+what the settings already said, and the answer is checked against the printer anyway
+if the read then fails. IPP probing is given the deadline, because looking for the
+path a silent printer answers on costs one timeout per path tried. And every section
+that needs the printer is raced against it in `lib/report.mts`: a section that runs
+out of time says so, in the report, rather than taking the report with it.
 
 Every report then ends with IPP, whatever the brand. A missing level is exactly the
 case where nobody yet knows which protocol holds the answer, so a report covering
@@ -118,6 +142,20 @@ Since 1.3.0 it reads both, under one rule, the same one the vendor branch follow
   unknown dressed as a reading.
 - **The page says which is which** — `read over IPP` next to the level, distinct
   from `manufacturer value`.
+
+IPP also carries the one thing the Printer-MIB does not define at all: a firmware
+version. `printer-firmware-string-version` is standard, so a printer of any brand may
+answer it, and where it does not there are two vendor OIDs — Brother's and Canon's —
+that owners' reports have shown answering. A brand nobody has reported shows nothing
+rather than a guess. It is a device setting rather than a capability: a string that
+changes when someone updates the printer has no business with an Insights graph.
+
+The SNMP version is treated the same way — as something the printer decides, not
+something the device knows. Pairing negotiates it, and a printer that changes under an
+already-paired device looks exactly like one that has stopped answering: same timeout,
+same grey tile, same repair screen, on a printer that is switched on and answering
+anything that asks it correctly. Before marking a device unreachable, the app asks
+once more which version answers, and moves to it.
 
 The two are closer than they look. IPP's supply levels use the same sentinels as
 RFC 3805 — -1 unavailable, -2 unknown, -3 present but unquantified — so the
