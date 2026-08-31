@@ -43,7 +43,7 @@ The number does exist. Brother keeps it on a private branch, packed into a singl
 OctetString alongside drum, belt, fuser and page counters — one OID, not the pages of
 walk output this project first went looking for. Since 1.2.0 the app reads it.
 
-### The one vendor read, and its limits
+### The two vendor reads, and their limits
 
 `lib/vendors/brother.mts` decodes that blob. The decoding is not this project's work:
 it is Home Assistant's [`brother`](https://github.com/bieniu/brother) library, which
@@ -62,13 +62,41 @@ Three rules keep this from becoming the thing the app depends on:
 - **The user is told which is which.** A vendor-sourced level is labelled as one in
   the settings page, next to the `-3` the printer actually sent.
 
-No other brand needs this, and none should get it without the same kind of evidence.
+Canon is the second, and it arrives by a different road. A PRO-1000 lists twelve inks
+in the standard table, names every one of them, and puts a level on six. The other six
+are in the status document Canon's own IJ status monitor reads — the `ivec` protocol —
+held in SNMP as a table of OctetString chunks that concatenate into one XML reply.
+`lib/vendors/canon.mts` splices those chunks back together in numeric OID order and
+reads the levels out of them.
+
+There is no library behind that one, so the evidence had to come from somewhere else,
+and it came from the report itself. Six of that printer's twelve inks had a number in
+the standard table, and the document gives the identical figure for every one of them:
+
+```
+standard   C 80   MBK 20   PBK 20   GY 80   Y 10   M 100
+document   C 80   MBK 20   PBK 20   GY 80   Y 10   M 100
+```
+
+Six agreements is not a proof. It is the same reading arriving twice by two unrelated
+routes, which is what makes filling the other six a fill rather than a guess — and the
+three rules above still decide what happens to it.
+
+The same document reports a maintenance cartridge, and that one is decoded, printed in
+the report and deliberately left out of the capabilities. Nothing in it says whether
+the number counts down as the tank fills or up as it empties, and this app has already
+shipped a waste tank read backwards once: a new bottle at 0 %, with a low-supply alarm
+on a healthy printer. It becomes a row when an owner says which way theirs reads.
+
+No other brand needs this, and none should get it without evidence of the same kind —
+a library with years of field experience behind it, or a printer's own answer checked
+against a reading the standard table already gave.
 
 ### When a level still reads unknown
 
 Settings has a **Report what a printer answers** button. It reads the address, dumps
 the standard supplies table, then reads the manufacturer's own branch — decoded for
-Brother, whose layout is known, raw for every other brand — and hands back text to
+the two brands whose layout is known, raw for every other — and hands back text to
 paste into the [support topic](https://community.homey.app/t/158655).
 
 That button exists because of how this gap was actually diagnosed: by asking someone
@@ -84,6 +112,14 @@ one would turn "there is more down here" into "there is nothing down here". Noth
 that section is decoded, either: a branch nobody has read has no decoder, and inventing
 one from a single report is how a vendor quirk becomes a wrong reading on somebody
 else's printer.
+
+A brand *with* a decoder is read at the part that answers rather than at the top of its
+branch. A Canon's whole branch opens with two hundred rows of network configuration and
+its ink document sits past every cap a report can afford — which is exactly what a
+Canon owner's first report did, stopping politely several hundred rows short of the one
+thing it had been asked for. So a Canon report starts at the document, and prints what
+that document decoded to; the whole branch is still one line in the box beside the
+button for anyone who wants it.
 
 A report that stopped at a cap can be pointed at one branch, which is what the caps
 promise its reader when they say so. That branch is read as asked whoever made the
@@ -155,7 +191,22 @@ something the device knows. Pairing negotiates it, and a printer that changes un
 already-paired device looks exactly like one that has stopped answering: same timeout,
 same grey tile, same repair screen, on a printer that is switched on and answering
 anything that asks it correctly. Before marking a device unreachable, the app asks
-once more which version answers, and moves to it.
+once more which version answers.
+
+What it asks matters as much as that it asks. The question used to be a single GET of
+`sysDescr`, and a printer can answer that on a version it cannot be read on: a Brother
+in the support topic replies to it over v2c and times out on every table walk. One
+question, answered on the wrong version, was enough to move a working device onto it —
+its owner set v1 by hand twice and found it back on v2c both times. So `probeVersions`
+asks each version two things, whether it replies and whether it can walk a table, and
+the walk stops at the first row because whether a table can be walked at all is settled
+by one round trip. Between two versions that both reply, the one that can read wins.
+
+And a paired device only moves on a strict improvement. Pairing has nothing to lose and
+takes anything that answers; a device already set correctly has a working setting,
+possibly one its owner corrected by hand, and "the other version also replied" is no
+reason to overwrite it. Silence on one side and answers on the other still is, which is
+the case this was written for.
 
 The two are closer than they look. IPP's supply levels use the same sentinels as
 RFC 3805 — -1 unavailable, -2 unknown, -3 present but unquantified — so the
@@ -181,10 +232,19 @@ A subnet sweep then covers the rest, and it is not a fallback of last resort:
 on the network this was developed against, Homey itself receives no mDNS at all —
 the printer advertises all three printer services and a Mac on the same subnet
 sees them, but nothing reaches Homey, which points at multicast being filtered
-between wireless clients. The sweep is what makes the app work there regardless. It asks each address the same SNMP question the
-app will ask later, so anything it finds is by definition usable. mDNS says a
-printer is *there*; only SNMP says it can be *read*, so discovery results are
-confirmed over SNMP before being offered.
+between wireless clients. The sweep is what makes the app work there regardless.
+mDNS says a printer is *there*; only SNMP says it can be *read*, so discovery results
+are confirmed over SNMP before being offered.
+
+The sweep's own confirmation is thinner than that, and used to be trusted further than
+it deserved. It speaks v2c to 254 addresses at once and records what answered, which is
+all it can afford — asking each address to walk a table as well would turn a search into
+a minute of waiting. But answering a v2c question is not the same as being readable over
+v2c, and the pairing screen created the device with whatever the sweep recorded. A
+Ricoh's diagnostic report showed the whole of it in four log lines: found over v2c,
+adopted, created, nothing in between. Tapping a found printer now probes that one
+address properly first — affordable there, because it is one machine and its owner is
+waiting on it.
 
 ### Flow cards
 
