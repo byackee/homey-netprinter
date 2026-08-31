@@ -158,19 +158,58 @@
     }
   }
 
+  /**
+   * Asks the printer which protocol it should be read with, before it is created.
+   *
+   * The sweep speaks v2c to 254 addresses at once and records what answered, and
+   * that is all it can afford to do: asking each address to walk a table as well
+   * would turn a search into a minute of waiting. But answering a v2c question
+   * is not the same as being readable over v2c — a printer can reply to a plain
+   * GET and then time out on every table walk, which is the shape two owners in
+   * the support topic hit. One had to correct the version by hand twice; the
+   * other saw a paired printer with named rows and no levels in any of them.
+   *
+   * Here there is exactly one address and the user is waiting on it, so the full
+   * probe is affordable and it is the one that decides. The swept answer is kept
+   * as the fallback: a printer that has gone quiet between the search and the
+   * tap should still pair with what the search saw, rather than not at all.
+   */
+  async function confirmProtocol(printer) {
+    // The manual path already probed this exact address to get here, so asking
+    // again would spend a second proving what the previous answer established.
+    if (printer.confirmed) return printer.version || 'v2c';
+
+    try {
+      const answer = await Homey.emit('probe', {
+        host: printer.host,
+        community: printer.community || 'public',
+      });
+      if (answer && answer.ok && answer.printer && answer.printer.version) {
+        return answer.printer.version;
+      }
+    } catch (error) {
+      report('protocol check failed: ' + ((error && error.message) || error));
+    }
+    return printer.version || 'v2c';
+  }
+
   async function adopt(printer) {
     if (busy) return;
     busy = true;
     report('adopting ' + printer.host);
 
     try {
+      setStatus(t('pair.checking', 'Checking how to read this printer\u2026'));
+      const version = await confirmProtocol(printer);
+      report('adopting ' + printer.host + ' over ' + version);
+
       await Homey.createDevice({
         name: printer.name,
         data: { id: printer.serial || ('host:' + printer.host) },
         settings: {
           host: printer.host,
           community: printer.community || 'public',
-          version: printer.version || 'v2c',
+          version: version,
           poll_interval: 300,
           low_threshold: 15,
         },
@@ -244,6 +283,7 @@
         return;
       }
       setStatus('');
+      answer.printer.confirmed = true;
       await adopt(answer.printer);
     } catch (error) {
       report('probe failed: ' + ((error && error.message) || error));

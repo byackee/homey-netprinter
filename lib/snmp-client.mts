@@ -10,6 +10,8 @@
 // A namespace import, because net-snmp is CommonJS and publishes no default export.
 import * as snmp from 'net-snmp';
 
+import { OID } from './printer-mib.mjs';
+
 /** SNMP versions we offer. v3 is out of scope: no printer we target requires it. */
 export type SnmpVersion = 'v2c' | 'v1';
 
@@ -451,6 +453,133 @@ export class SnmpClient {
 
 }
 
+/** What one SNMP version could actually do when it was asked. */
+export interface VersionProbe {
+  /** The agent replied to a plain GET. */
+  answers: boolean;
+  /** It also walked a table — the operation every reading in this app depends on. */
+  walks: boolean;
+}
+
+/** Both versions, tried. Ordered v2c first, which is also the tie-break. */
+export type VersionProbes = ReadonlyArray<readonly [SnmpVersion, VersionProbe]>;
+
+/**
+ * Asks each version two questions instead of one.
+ *
+ * A single GET was the whole test, and it is not enough. A Brother MFC-DW4540W
+ * answers sysDescr on v2c perfectly well and then times out on every table
+ * walk — which is to say v2c "works" by the only measure the old probe had, and
+ * gives the user nothing. Its owner set the device to v1 by hand, twice, and
+ * watched it come back on v2c a few hours later: the outage handler
+ * re-negotiated, the GET answered on v2c, and the app moved a working printer
+ * onto the version that cannot read it.
+ *
+ * So the probe now asks for what the app actually needs. The GET stays, because
+ * it is what tells reachable from unreachable and some printers publish no
+ * supplies table at all. The walk is the second question, and its answer is
+ * what separates two versions that both reply.
+ *
+ * The walk stops at the first row, which is the difference between a second
+ * question and a second reading. Whether a table can be walked at all is
+ * settled by one round trip; walking it to the end would put a full supplies
+ * read inside a probe that runs on the report endpoint, where the whole call is
+ * cut off at ten seconds — and a report that overruns is not a late report, it
+ * is the timeout a Canon owner already sent in once.
+ *
+ * The walk is also only asked of a version whose GET answered, so no version
+ * can cost two timeouts: it is silent and costs one, or it is talking and the
+ * second question is cheap.
+ *
+ * Sequential, not parallel: two SNMP conversations with one printer at once is
+ * how a small agent starts dropping replies, and this runs while a user waits
+ * at a pairing screen where a wrong answer is worse than a slow one.
+ */
+export async function probeVersions(
+  host: string,
+  community: string,
+  timeout = 4_000,
+): Promise<VersionProbes> {
+  const scalar = '1.3.6.1.2.1.1.1.0'; // sysDescr.0 — every SNMP agent has it.
+  // prtMarkerSuppliesLevel: the table this app is for, and the one that fails.
+  const table = OID.suppliesLevel;
+
+  const probes: Array<readonly [SnmpVersion, VersionProbe]> = [];
+  for (const version of ['v2c', 'v1'] as const) {
+    const client = new SnmpClient({ host, community, version, timeout, retries: 0 });
+    let answers = false;
+    let walks = false;
+    try {
+      answers = (await client.get([scalar])).get(scalar) !== null;
+    } catch {
+      // Not an answer, which is the finding. Nothing else to ask this version.
+    }
+    if (answers) {
+      try {
+        walks = (await client.walkBounded(table, { maxRows: 1 })).rows.length > 0;
+      } catch {
+        // A version that replies but cannot walk. That is the whole point of asking.
+      }
+    }
+    probes.push([version, { answers, walks }]);
+  }
+  return probes;
+}
+
+/**
+ * The best version among a set of probes, or null when none replied.
+ *
+ * "Best" is walking beats replying beats silence, and v2c wins a tie for its
+ * per-varbind error reporting — the preference this has always had, now applied
+ * only between versions that are genuinely equal.
+ */
+export function bestVersion(probes: VersionProbes): SnmpVersion | null {
+  let best: SnmpVersion | null = null;
+  let bestScore = 0;
+  for (const [version, probe] of probes) {
+    const score = versionScore(probe);
+    if (score > bestScore) {
+      best = version;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/** How much a version is worth: 2 walks, 1 replies, 0 silent. */
+export function versionScore(probe: VersionProbe | undefined): number {
+  if (probe === undefined || !probe.answers) return 0;
+  return probe.walks ? 2 : 1;
+}
+
+/**
+ * The version a device already on `current` should move to, or null to stay.
+ *
+ * Separate from {@link bestVersion} because moving a paired device is not the
+ * same decision as choosing one for a new device, and conflating them shipped a
+ * bug. Pairing has nothing to lose: any version that replies beats none. A
+ * paired device has a working setting, possibly one its owner corrected by
+ * hand, and "the other version also replies" is not a reason to overwrite it —
+ * a Brother that answers sysDescr on v2c and reads nothing was moved back onto
+ * v2c every few hours by exactly that reasoning.
+ *
+ * So a switch has to be a strict improvement: the candidate must do something
+ * the current version cannot. Which still catches what this is for — a firmware
+ * update that switches v2c off leaves it scoring zero against a v1 that walks.
+ */
+export function betterVersion(
+  probes: VersionProbes,
+  current: SnmpVersion,
+): SnmpVersion | null {
+  const found = bestVersion(probes);
+  if (found === null || found === current) return null;
+
+  const scoreOf = (version: SnmpVersion): number =>
+    versionScore(probes.find(([v]) => v === version)?.[1]);
+
+  return scoreOf(found) > scoreOf(current) ? found : null;
+}
+
 /**
  * Finds a version the printer answers on, preferring v2c for its per-varbind
  * error reporting. Returns null when neither version gets a reply, which is what
@@ -461,16 +590,5 @@ export async function negotiateVersion(
   community: string,
   timeout = 4_000,
 ): Promise<SnmpVersion | null> {
-  const probe = '1.3.6.1.2.1.1.1.0'; // sysDescr.0 — every SNMP agent has it.
-
-  for (const version of ['v2c', 'v1'] as const) {
-    const client = new SnmpClient({ host, community, version, timeout, retries: 0 });
-    try {
-      const result = await client.get([probe]);
-      if (result.get(probe) !== null) return version;
-    } catch {
-      // Try the next version; the caller only cares whether any of them worked.
-    }
-  }
-  return null;
+  return bestVersion(await probeVersions(host, community, timeout));
 }

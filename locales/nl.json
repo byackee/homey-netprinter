@@ -23,7 +23,8 @@
     "repair_intro": "Voer het huidige IP-adres van de printer in. Gebruik dit wanneer de printer een ander adres heeft gekregen en niet meer antwoordt.",
     "search": "Mijn netwerk doorzoeken",
     "search_again": "Opnieuw zoeken",
-    "searching_button": "Bezig met zoeken…"
+    "searching_button": "Bezig met zoeken…",
+    "checking": "Controleren hoe deze printer uitgelezen moet worden…"
   },
   "settings": {
     "printers": "Gekoppelde printers",

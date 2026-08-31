@@ -29,6 +29,7 @@ import {
   decodeBrotherReading,
   printerKindFrom,
 } from './lib/vendors/brother.mjs';
+import { CANON_STATUS_ROOT } from './lib/vendors/canon.mjs';
 
 /**
  * A Homey API call is cut off after ten seconds. Every endpoint here has to
@@ -300,7 +301,9 @@ async function postTest({ body }: Request): Promise<{
   if (!host) return { ok: false, message: 'Enter an IP address.' };
 
   // Two versions tried at this timeout each, then one read: comfortably inside
-  // the ten seconds the API allows.
+  // the ten seconds the API allows. Each version costs one timeout at most —
+  // the probe's second question is only put to a version that answered the
+  // first, and it stops at one row. See probeVersions.
   const version = await negotiateVersion(host, community, API_READ_TIMEOUT_MS);
 
   // No SNMP is no longer the end of the conversation. The reply is assembled
@@ -443,6 +446,12 @@ async function postDump({ homey, body }: Request): Promise<{
       host, community, version, timeout: API_READ_TIMEOUT_MS, retries: 0,
     }).walkBounded(root, { ...VENDOR_WALK, budgetMs: walkBudgetMs(deadlineAt), keepRaw: true }),
     brotherSection: () => brotherSection(host, community, version, snapshot.supplies),
+    // Walked at the document rather than at the branch: see formatCanonStatus.
+    canonSection: () => new SnmpClient({
+      host, community, version, timeout: API_READ_TIMEOUT_MS, retries: 0,
+    }).walkBounded(CANON_STATUS_ROOT, {
+      ...VENDOR_WALK, budgetMs: walkBudgetMs(deadlineAt), keepRaw: true,
+    }),
     ippSection: () => ippSection(host, deadlineAt),
   });
 

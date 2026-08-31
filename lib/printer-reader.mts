@@ -37,6 +37,7 @@ import {
   vendorPercentFor,
   type BrotherReading,
 } from './vendors/brother.mjs';
+import { CANON_ENTERPRISE, canonPercentFor, readCanon } from './vendors/canon.mjs';
 import { IPP_ATTRIBUTES, fillFromIpp, ippReading, type IppReading } from './ipp-printer.mjs';
 import { IppClient, IppError, probeIpp } from './ipp-client.mjs';
 import { firmwareOid } from './vendors.mjs';
@@ -566,8 +567,9 @@ export class PrinterReader {
     enterprise: number | null,
     supplies: Supply[],
   ): Promise<VendorReading | null> {
-    if (enterprise !== BROTHER_ENTERPRISE) return null;
     if (!supplies.some((s) => s.percent === null)) return null;
+    if (enterprise === CANON_ENTERPRISE) return this.readCanonVendor(supplies);
+    if (enterprise !== BROTHER_ENTERPRISE) return null;
 
     const kind = printerKindFrom(supplies.map((s) => s.type));
     const reading: BrotherReading = await readBrother(this.client, kind);
@@ -594,6 +596,53 @@ export class PrinterReader {
         value: v.value,
         isPercent: v.isPercent,
       })),
+      filled,
+    };
+  }
+
+  /**
+   * The same job for a Canon, from the status document its own drivers read.
+   *
+   * Kept apart from Brother's rather than folded into one loop, because the two
+   * brands are alike only in the rule they obey. Brother packs its levels into
+   * a binary blob keyed by marker byte and needs a colour-and-kind match to say
+   * which cartridge a number belongs to; Canon publishes an XML document in
+   * which each ink names itself with the very string the standard table used as
+   * that row's description. Sharing code between them would mean inventing an
+   * abstraction over one example each.
+   *
+   * The waste-ink item the document also carries is read and kept for the
+   * report, and deliberately fills nothing — see the note in vendors/canon.
+   */
+  private async readCanonVendor(supplies: Supply[]): Promise<VendorReading | null> {
+    const reading = await readCanon(this.client);
+    if (!reading.document) return null;
+
+    const filled: string[] = [];
+    for (const supply of supplies) {
+      const percent = canonPercentFor(supply, supplies, reading);
+      if (percent === null) continue;
+      supply.percent = percent;
+      supply.vendorSourced = true;
+      filled.push(supply.index);
+    }
+
+    return {
+      vendor: 'Canon',
+      model: null,
+      firmware: null,
+      values: [
+        ...reading.inks.map((ink) => ({
+          key: `${ink.colour.toLowerCase()}_ink_remaining`,
+          value: ink.level,
+          isPercent: true,
+        })),
+        ...reading.waste.map((w) => ({
+          key: w.model ? `waste_ink_${w.model.toLowerCase()}` : 'waste_ink',
+          value: w.level,
+          isPercent: true,
+        })),
+      ],
       filled,
     };
   }

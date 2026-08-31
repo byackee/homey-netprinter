@@ -8,9 +8,18 @@ import type { DumpReportSources } from '../lib/report.mjs';
 
 import { buildDumpReport } from '../lib/report.mjs';
 import { BROTHER_ENTERPRISE } from '../lib/vendors/brother.mjs';
+import { CANON_STATUS_ROOT } from '../lib/vendors/canon.mjs';
 
-const identity = (enterprise: number | null): PrinterIdentity => ({
-  model: 'Pro-1000S',
+/** A minimal status document, in the shape a PRO-1000 answers with. */
+const CANON_DOCUMENT =
+  '<?xml version="1.0"?><ivec:contents><ivec:marker_info>'
+  + '<ivec:ink><ivec:model><![CDATA[PFI-1000]]></ivec:model><ivec:color>C</ivec:color>'
+  + '<ivec:icon>none</ivec:icon><ivec:level>80</ivec:level></ivec:ink>'
+  + '</ivec:marker_info><ivec:wasteink><ivec:item><ivec:model>MC-20</ivec:model>'
+  + '<ivec:level>30</ivec:level></ivec:item></ivec:wasteink></ivec:contents>';
+
+const identity = (enterprise: number | null, model = 'C3326dw'): PrinterIdentity => ({
+  model,
   name: 'printer',
   serial: 'ABC123',
   enterprise,
@@ -41,14 +50,17 @@ function sources(over: Partial<DumpReportSources> = {}): DumpReportSources {
     host: '192.168.1.42',
     community: 'public',
     version: 'v2c',
-    identity: identity(1602),
-    vendor: 'Canon',
+    // Lexmark by default: a brand with no decoder of its own, which is the path
+    // most of these tests are about. Brother and Canon each set their own.
+    identity: identity(641),
+    vendor: 'Lexmark',
     firmware: '4.000',
     supplies: [supply()],
     branch: null,
     deadlineAt: Date.now() + 5_000,
-    walkVendorBranch: async () => walked([{ oid: '1.3.6.1.4.1.1602.1', value: 42 }]),
+    walkVendorBranch: async () => walked([{ oid: '1.3.6.1.4.1.641.1', value: 42 }]),
     brotherSection: async () => ['## Brother private branch, raw', '(brother lines)'],
+    canonSection: async () => walked([{ oid: `${CANON_STATUS_ROOT}.1.2.1.1`, value: CANON_DOCUMENT }]),
     ippSection: async () => ['', '## IPP', 'answered at ipp://192.168.1.42/ipp/print'],
     ...over,
   };
@@ -147,10 +159,10 @@ describe('buildDumpReport', () => {
   it('names the printer and how it was reached', async () => {
     const text = await buildDumpReport(sources());
 
-    assert.ok(text.startsWith('# Canon Pro-1000S'), text.slice(0, 80));
+    assert.ok(text.startsWith('# Lexmark C3326dw'), text.slice(0, 80));
     assert.ok(text.includes('host        192.168.1.42'), text);
     assert.ok(text.includes('snmp        v2c, community "public"'), text);
-    assert.ok(text.includes('sysObjectID enterprise 1602 (Canon)'), text);
+    assert.ok(text.includes('sysObjectID enterprise 641 (Lexmark)'), text);
     assert.ok(text.includes('serial      ABC123'), text);
   });
 
@@ -205,11 +217,73 @@ describe('buildDumpReport', () => {
   it('walks the branch of the enterprise number the printer gave', async () => {
     const roots: string[] = [];
     await buildDumpReport(sources({
-      identity: identity(1602),
+      identity: identity(1129),
+      vendor: 'Kyocera',
       walkVendorBranch: async (root) => { roots.push(root); return walked([]); },
     }));
 
-    assert.deepEqual(roots, ['1.3.6.1.4.1.1602']);
+    assert.deepEqual(roots, ['1.3.6.1.4.1.1129']);
+  });
+
+  /**
+   * Tom_Van_Zele's Canon, and the reason this section is not a vendor walk.
+   *
+   * His first report walked 1.3.6.1.4.1.1602 and stopped at the row cap two
+   * hundred rows of network configuration later, having never reached the
+   * document his ink levels are in. Pointed there instead, the same budget
+   * reaches all twelve.
+   */
+  it('reads a Canon at the document its levels are in, not at its branch', async () => {
+    const roots: string[] = [];
+    const text = await buildDumpReport(sources({
+      identity: identity(1602, 'PRO-1000 series'),
+      vendor: 'Canon',
+      walkVendorBranch: async (root) => { roots.push(root); return walked([]); },
+    }));
+
+    assert.deepEqual(roots, [], 'the generic branch walk has no business running here');
+    assert.match(text, /## Canon status document, 1\.3\.6\.1\.4\.1\.1602\.1\.5\.1\.6\.2\.2/);
+    assert.match(text, /^C$/m);
+    assert.match(text, /80 % · PFI-1000/);
+    assert.ok(text.indexOf('## IPP') > text.indexOf('## Canon status document'), text);
+  });
+
+  it('dumps the chunks when a Canon answers something that is not a document', async () => {
+    const text = await buildDumpReport(sources({
+      identity: identity(1602),
+      vendor: 'Canon',
+      canonSection: async () => walked([
+        { oid: `${CANON_STATUS_ROOT}.1.2.1.1`, value: 'not xml at all' },
+      ]),
+    }));
+
+    assert.match(text, /none of them/);
+    assert.match(text, /"not xml at all"/);
+    assert.match(text, /## IPP/);
+  });
+
+  it('says a silent Canon is silent rather than reporting no levels', async () => {
+    const text = await buildDumpReport(sources({
+      identity: identity(1602),
+      vendor: 'Canon',
+      canonSection: async () => walked([]),
+    }));
+
+    assert.match(text, /answers nothing here/);
+    assert.match(text, /1\.3\.6\.1\.4\.1\.1602/);
+    assert.match(text, /## IPP/);
+  });
+
+  it('reports a Canon document that failed, and reads IPP anyway', async () => {
+    const text = await buildDumpReport(sources({
+      identity: identity(1602),
+      vendor: 'Canon',
+      canonSection: async () => { throw new Error('request timed out'); },
+    }));
+
+    assert.match(text, /## Canon status document/);
+    assert.match(text, /Could not be read: request timed out/);
+    assert.match(text, /## IPP/);
   });
 });
 
@@ -273,7 +347,7 @@ describe('buildDumpReport, against the clock', () => {
     }));
 
     assert.match(text, /## prtMarkerSuppliesTable/);
-    assert.match(text, /1\.3\.6\.1\.4\.1\.1602\.1/);
+    assert.match(text, /1\.3\.6\.1\.4\.1\.641\.1/);
     assert.match(text, /## IPP/);
     assert.match(text, /ran out first/);
   });

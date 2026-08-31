@@ -23,7 +23,8 @@
     "repair_intro": "Enter the printer's current IP address. Use this when the printer moved to a new address and stopped answering.",
     "search": "Search my network",
     "search_again": "Search again",
-    "searching_button": "Searching…"
+    "searching_button": "Searching…",
+    "checking": "Checking how to read this printer…"
   },
   "settings": {
     "printers": "Paired printers",

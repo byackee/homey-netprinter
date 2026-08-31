@@ -19,7 +19,12 @@ import {
   type PrinterSnapshot,
   type ReadProtocol,
 } from '../../lib/printer-reader.mjs';
-import { SnmpUnreachableError, negotiateVersion, type SnmpVersion } from '../../lib/snmp-client.mjs';
+import {
+  SnmpUnreachableError,
+  betterVersion,
+  probeVersions,
+  type SnmpVersion,
+} from '../../lib/snmp-client.mjs';
 
 /** What pairing stored on the device; the address can later be corrected in settings. */
 interface PrinterSettings {
@@ -49,11 +54,17 @@ const DEFAULT_FAILURES_BEFORE_UNAVAILABLE = 3;
 const POLL_DEADLINE_MS = 120_000;
 
 /**
- * How long each version gets when the stored one has stopped working.
+ * How long each request gets when the stored version has stopped working.
  *
  * Short on purpose: this runs against a printer that has already missed several
  * polls, so the likeliest answer is silence on both versions, and nothing waits
  * on it — the device is about to be marked unavailable either way.
+ *
+ * Per request rather than per version, and the probe now asks each version for
+ * a table as well as a scalar, so a printer that is genuinely off costs two
+ * timeouts rather than one. Still nothing anybody is waiting on, and the second
+ * question is the one that stops a working device being moved to a version that
+ * only answers the first.
  */
 const RENEGOTIATE_TIMEOUT_MS = 2_000;
 
@@ -319,8 +330,15 @@ export default class PrinterDevice extends Homey.Device {
     // IPP is not an SNMP version and has nothing to negotiate against.
     if (version === 'ipp') return false;
 
-    const found = await negotiateVersion(host, community, RENEGOTIATE_TIMEOUT_MS).catch(() => null);
-    if (found === null || found === version) return false;
+    const probes = await probeVersions(host, community, RENEGOTIATE_TIMEOUT_MS).catch(() => null);
+    if (probes === null) return false;
+
+    // Strictly better, not merely different — see betterVersion. A device that
+    // is already set correctly must come out of this unchanged, because the
+    // last time it did not, a user spent two days putting their printer back
+    // onto v1 by hand.
+    const found = betterVersion(probes, version);
+    if (found === null) return false;
 
     this.log(`${host} no longer answers ${version} but does answer ${found} — switching`);
     await this.setSettings({ version: found }).catch((e: Error) =>

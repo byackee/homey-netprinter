@@ -21,8 +21,9 @@ import type { Supply } from './printer-mib.mjs';
 import type { BoundedWalk, SnmpVersion } from './snmp-client.mjs';
 import type { PrinterIdentity } from './printer-reader.mjs';
 
-import { VENDOR_WALK, formatVendorWalk, vendorWalkRoot } from './vendor-walk.mjs';
+import { VENDOR_WALK, formatVendorWalk, renderVendorValue, vendorWalkRoot } from './vendor-walk.mjs';
 import { BROTHER_ENTERPRISE } from './vendors/brother.mjs';
+import { CANON_ENTERPRISE, CANON_STATUS_ROOT, decodeCanonWalk } from './vendors/canon.mjs';
 
 /**
  * Everything one report is made of: what was read, and how to read the rest.
@@ -57,6 +58,8 @@ export interface DumpReportSources {
   walkVendorBranch(root: string): Promise<BoundedWalk>;
   /** Brother's private branch, raw and decoded — the one brand with a decoder. */
   brotherSection(): Promise<string[]>;
+  /** Canon's status document, walked at the root the levels actually live under. */
+  canonSection(): Promise<BoundedWalk>;
   /** What the printer answers over IPP. */
   ippSection(): Promise<string[]>;
   /**
@@ -130,6 +133,80 @@ function standardTable(supplies: Supply[]): string[] {
 }
 
 /**
+ * Canon's status document, decoded.
+ *
+ * A Canon's whole private branch is not where its levels are. It opens with
+ * hundreds of rows of network configuration, and the document holding the ink
+ * runs past every cap a report can afford — which is exactly what happened to
+ * the first Canon owner who sent one in: the report stopped, politely, several
+ * hundred rows short of the only thing it was asked for. So a Canon is walked at
+ * the document instead of at the branch, and the branch is still one line in the
+ * box beside the button for anyone who wants it.
+ *
+ * The decoded levels come first because they are the answer, and the raw chunks
+ * follow only when nothing decoded — a document that parsed needs no dump, and a
+ * document that did not is the one case where the bytes are the whole point.
+ */
+export function formatCanonStatus(walk: BoundedWalk): string[] {
+  const lines = [`## Canon status document, ${CANON_STATUS_ROOT}`];
+
+  if (walk.rows.length === 0) {
+    lines.push(
+      'This Canon answers nothing here. That is a finding rather than a failure: it',
+      'means the standard table above is the only place a level could come from, and',
+      "the whole private branch — 1.3.6.1.4.1.1602 — is worth a look in the box",
+      'beside the report button.',
+    );
+    return lines;
+  }
+
+  const reading = decodeCanonWalk(walk.rows.map((row) => [row.oid, row.value] as const));
+
+  if (!reading.document) {
+    lines.push(
+      `${walk.rows.length} chunk${walk.rows.length === 1 ? '' : 's'} answered, and none of them`,
+      'assembled into a status document this app can read. The bytes follow, which is',
+      'what makes this worth pasting: they are what a decoder gets written from.',
+      '',
+    );
+    for (const row of walk.rows) {
+      lines.push(row.oid, `      ${renderVendorValue(row.value)}`);
+    }
+    return lines;
+  }
+
+  lines.push(
+    `Assembled from ${walk.rows.length} chunk${walk.rows.length === 1 ? '' : 's'}. These are the`,
+    "levels the printer's own status monitor reads, and the app fills a standard row",
+    'from one only where the standard table gave no number.',
+    '',
+  );
+
+  for (const ink of reading.inks) {
+    lines.push(`${ink.colour}`, `      ${ink.level} %` +
+      (ink.model ? ` · ${ink.model}` : '') +
+      (ink.icon ? ` · ${ink.icon}` : ''));
+  }
+
+  for (const waste of reading.waste) {
+    lines.push(
+      `waste ink${waste.model ? ` · ${waste.model}` : ''}`,
+      `      ${waste.level} — shown, not used. Nothing here says whether this counts`,
+      '      down as the tank fills or up, and a maintenance cartridge read backwards',
+      '      is a false alarm on a healthy printer. If your printer shows a figure for',
+      '      it, say what it is in the topic and it becomes a row.',
+    );
+  }
+
+  const note = walk.stoppedBy === null ? null
+    : 'The document was cut short by a report cap, so the levels above may be'
+      + ' incomplete.';
+  if (note) lines.push('', note);
+
+  return lines;
+}
+
+/**
  * The private branch, whichever kind of private branch this printer has.
  *
  * Three outcomes, one return: a printer that will not say who made it has no
@@ -172,6 +249,18 @@ async function privateBranch(sources: DumpReportSources): Promise<string[]> {
     } catch (error) {
       return [
         '## Brother private branch',
+        `Could not be read: ${(error as Error).message}`,
+        'Everything above still stands — it was read before this failed.',
+      ];
+    }
+  }
+
+  if (identity.enterprise === CANON_ENTERPRISE) {
+    try {
+      return formatCanonStatus(await sources.canonSection());
+    } catch (error) {
+      return [
+        `## Canon status document, ${CANON_STATUS_ROOT}`,
         `Could not be read: ${(error as Error).message}`,
         'Everything above still stands — it was read before this failed.',
       ];
