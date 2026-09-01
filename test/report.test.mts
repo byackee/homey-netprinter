@@ -9,6 +9,7 @@ import type { DumpReportSources } from '../lib/report.mjs';
 import { buildDumpReport } from '../lib/report.mjs';
 import { BROTHER_ENTERPRISE } from '../lib/vendors/brother.mjs';
 import { CANON_STATUS_ROOT } from '../lib/vendors/canon.mjs';
+import { RICOH_TONER_ROOT } from '../lib/vendors/ricoh.mjs';
 
 /** A minimal status document, in the shape a PRO-1000 answers with. */
 const CANON_DOCUMENT =
@@ -61,6 +62,11 @@ function sources(over: Partial<DumpReportSources> = {}): DumpReportSources {
     walkVendorBranch: async () => walked([{ oid: '1.3.6.1.4.1.641.1', value: 42 }]),
     brotherSection: async () => ['## Brother private branch, raw', '(brother lines)'],
     canonSection: async () => walked([{ oid: `${CANON_STATUS_ROOT}.1.2.1.1`, value: CANON_DOCUMENT }]),
+    ricohSection: async () => walked([
+      { oid: `${RICOH_TONER_ROOT}.3.1`, value: 'Black Toner' },
+      { oid: `${RICOH_TONER_ROOT}.4.1`, value: 13 },
+      { oid: `${RICOH_TONER_ROOT}.5.1`, value: 80 },
+    ]),
     ippSection: async () => ['', '## IPP', 'answered at ipp://192.168.1.42/ipp/print'],
     ...over,
   };
@@ -282,6 +288,42 @@ describe('buildDumpReport', () => {
     }));
 
     assert.match(text, /## Canon status document/);
+    assert.match(text, /Could not be read: request timed out/);
+    assert.match(text, /## IPP/);
+  });
+
+  it('decodes a Ricoh toner table instead of printing its bytes', async () => {
+    const text = await buildDumpReport(sources({
+      identity: identity(367),
+      vendor: 'Ricoh',
+    }));
+
+    assert.match(text, /## Ricoh toner table/);
+    assert.match(text, /Black Toner/);
+    assert.match(text, /level 80 · black → 80 %/);
+    assert.match(text, /## IPP/);
+  });
+
+  it('says a silent Ricoh is silent rather than reporting no toners', async () => {
+    const text = await buildDumpReport(sources({
+      identity: identity(367),
+      vendor: 'Ricoh',
+      ricohSection: async () => walked([]),
+    }));
+
+    assert.match(text, /answers nothing here/);
+    assert.match(text, /1\.3\.6\.1\.4\.1\.367/);
+    assert.match(text, /## IPP/);
+  });
+
+  it('reports a Ricoh toner table that failed, and reads IPP anyway', async () => {
+    const text = await buildDumpReport(sources({
+      identity: identity(367),
+      vendor: 'Ricoh',
+      ricohSection: async () => { throw new Error('request timed out'); },
+    }));
+
+    assert.match(text, /## Ricoh toner table/);
     assert.match(text, /Could not be read: request timed out/);
     assert.match(text, /## IPP/);
   });

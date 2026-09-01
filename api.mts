@@ -30,6 +30,7 @@ import {
   printerKindFrom,
 } from './lib/vendors/brother.mjs';
 import { CANON_STATUS_ROOT } from './lib/vendors/canon.mjs';
+import { RICOH_TONER_ROOT } from './lib/vendors/ricoh.mjs';
 
 /**
  * A Homey API call is cut off after ten seconds. Every endpoint here has to
@@ -450,6 +451,12 @@ async function postDump({ homey, body }: Request): Promise<{
     canonSection: () => new SnmpClient({
       host, community, version, timeout: API_READ_TIMEOUT_MS, retries: 0,
     }).walkBounded(CANON_STATUS_ROOT, {
+      ...VENDOR_WALK, budgetMs: walkBudgetMs(deadlineAt), keepRaw: true,
+    }),
+    // Walked at the table rather than at the branch: see formatRicohToner.
+    ricohSection: () => new SnmpClient({
+      host, community, version, timeout: API_READ_TIMEOUT_MS, retries: 0,
+    }).walkBounded(RICOH_TONER_ROOT, {
       ...VENDOR_WALK, budgetMs: walkBudgetMs(deadlineAt), keepRaw: true,
     }),
     ippSection: () => ippSection(host, deadlineAt),

@@ -38,6 +38,7 @@ import {
   type BrotherReading,
 } from './vendors/brother.mjs';
 import { CANON_ENTERPRISE, canonPercentFor, readCanon } from './vendors/canon.mjs';
+import { RICOH_ENTERPRISE, readRicoh, ricohPercentFor } from './vendors/ricoh.mjs';
 import { IPP_ATTRIBUTES, fillFromIpp, ippReading, type IppReading } from './ipp-printer.mjs';
 import { IppClient, IppError, probeIpp } from './ipp-client.mjs';
 import { firmwareOid } from './vendors.mjs';
@@ -338,9 +339,9 @@ export class PrinterReader {
     const rawError = errorRaw.get(OID.hrPrinterDetectedErrorState);
     const enterprise = enterpriseNumber(asString(scalars.get(OID.sysObjectID)));
 
-    // Only Brother, only when the standard table left a hole, and only ever
-    // after the standard read has already succeeded. A vendor extra that fails
-    // must cost the poll nothing.
+    // Only the brands with a decoder, only when the standard table left a hole,
+    // and only ever after the standard read has already succeeded. A vendor
+    // extra that fails must cost the poll nothing.
     const vendor = await this.readVendor(enterprise, supplies).catch(() => null);
 
     // And only when something is still missing after all that. Same rule, same
@@ -569,6 +570,7 @@ export class PrinterReader {
   ): Promise<VendorReading | null> {
     if (!supplies.some((s) => s.percent === null)) return null;
     if (enterprise === CANON_ENTERPRISE) return this.readCanonVendor(supplies);
+    if (enterprise === RICOH_ENTERPRISE) return this.readRicohVendor(supplies);
     if (enterprise !== BROTHER_ENTERPRISE) return null;
 
     const kind = printerKindFrom(supplies.map((s) => s.type));
@@ -643,6 +645,48 @@ export class PrinterReader {
           isPercent: true,
         })),
       ],
+      filled,
+    };
+  }
+
+  /**
+   * The same job for a Ricoh, from the toner table Ricoh documents.
+   *
+   * Apart from the other two again, and this one is the least like them: there
+   * is nothing to decode. Ricoh publishes a table with a colour on one column
+   * and a percentage on another, and the whole of the work is refusing the rows
+   * that are sentinels rather than readings — see the note in vendors/ricoh.
+   *
+   * Every toner is reported, filled or not, for the same reason Brother's and
+   * Canon's are: this is the record of what the private branch answered, kept
+   * beside the standard reading rather than folded into it. The surface that
+   * shows a user a level the app declined to use is the diagnostic report,
+   * which reads the table itself — nothing here is displayed today.
+   */
+  private async readRicohVendor(supplies: Supply[]): Promise<VendorReading | null> {
+    const reading = await readRicoh(this.client);
+    if (reading.toners.length === 0) return null;
+
+    const filled: string[] = [];
+    for (const supply of supplies) {
+      const percent = ricohPercentFor(supply, supplies, reading);
+      if (percent === null) continue;
+      supply.percent = percent;
+      supply.vendorSourced = true;
+      filled.push(supply.index);
+    }
+
+    return {
+      vendor: 'Ricoh',
+      model: null,
+      firmware: null,
+      values: reading.toners
+        .filter((toner) => toner.level !== null)
+        .map((toner) => ({
+          key: `${(toner.colour ?? toner.name ?? toner.index).toLowerCase().replace(/[^a-z0-9]+/g, '_')}_toner_remaining`,
+          value: toner.percent ?? toner.level!,
+          isPercent: toner.percent !== null,
+        })),
       filled,
     };
   }
