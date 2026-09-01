@@ -43,7 +43,7 @@ The number does exist. Brother keeps it on a private branch, packed into a singl
 OctetString alongside drum, belt, fuser and page counters — one OID, not the pages of
 walk output this project first went looking for. Since 1.2.0 the app reads it.
 
-### The two vendor reads, and their limits
+### The three vendor reads, and their limits
 
 `lib/vendors/brother.mts` decodes that blob. The decoding is not this project's work:
 it is Home Assistant's [`brother`](https://github.com/bieniu/brother) library, which
@@ -88,15 +88,43 @@ the number counts down as the tank fills or up as it empties, and this app has a
 shipped a waste tank read backwards once: a new bottle at 0 %, with a low-supply alarm
 on a healthy printer. It becomes a row when an owner says which way theirs reads.
 
+Ricoh is the third, and it is the only one where the evidence is published. An Aficio
+SP C242SF lists four cartridges and a waste bottle, names every one of them, and puts
+`-3` on all five: there is toner in here and I will not say how much. Ricoh keeps the
+figures in a table of its own — and unlike Brother's blob or Canon's document, Ricoh
+says in its own specification what that table means: the level is a percentage of
+toner remaining, `-100` is near empty, `-2` is unknown.
+
+That sentence is what makes a single report enough. The Canon fill had to be argued
+from six numbers agreeing, because nothing said which direction its levels counted;
+here the manufacturer says which direction, for the object being read, so no reading
+has to establish it.
+
+What the report was still needed for is the shape, and it corrects a mistake the
+public monitoring templates share. They read the table by position — first row black,
+second cyan — following the example in Ricoh's own document. That printer answers
+cyan first and black fourth. A fixed position would have shown its owner their cyan
+level on their black cartridge, and nothing would have looked wrong until one of them
+ran out. So a row is matched by the type code the printer sends, never by where it
+sits.
+
+Two consequences worth stating rather than hiding. Ricoh counts in steps of ten down
+to 20 and then reports near empty for everything below; the app shows that as 10 %,
+the top of the band Ricoh defines, so a low-supply alarm fires at that step and not
+before — the printer's granularity, not a threshold to tune. And the waste bottle
+stays blank: the toner table holds toners and says nothing about a receptacle, which
+is the same answer the Canon maintenance cartridge gets, for the same reason.
+
 No other brand needs this, and none should get it without evidence of the same kind —
-a library with years of field experience behind it, or a printer's own answer checked
-against a reading the standard table already gave.
+a library with years of field experience behind it, a printer's own answer checked
+against a reading the standard table already gave, or a manufacturer that documents
+what its own numbers mean.
 
 ### When a level still reads unknown
 
 Settings has a **Report what a printer answers** button. It reads the address, dumps
 the standard supplies table, then reads the manufacturer's own branch — decoded for
-the two brands whose layout is known, raw for every other — and hands back text to
+the three brands whose layout is known, raw for every other — and hands back text to
 paste into the [support topic](https://community.homey.app/t/158655).
 
 That button exists because of how this gap was actually diagnosed: by asking someone
@@ -119,7 +147,9 @@ its ink document sits past every cap a report can afford — which is exactly wh
 Canon owner's first report did, stopping politely several hundred rows short of the one
 thing it had been asked for. So a Canon report starts at the document, and prints what
 that document decoded to; the whole branch is still one line in the box beside the
-button for anyone who wants it.
+button for anyone who wants it. A Ricoh report starts at its toner table for the same
+reason — that one branch happened to fit on the machine it was written from, and will
+not on a busier one.
 
 A report that stopped at a cap can be pointed at one branch, which is what the caps
 promise its reader when they say so. That branch is read as asked whoever made the
