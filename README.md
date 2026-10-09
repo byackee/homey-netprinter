@@ -16,7 +16,7 @@ The manufacturer is detected from `sysObjectID` and used only to name the device
 | One level per paper tray, named after its tray and paper | `prtInputTable` |
 | Output tray: OK, half full, full | `prtOutputTable` plus the output error bits |
 | Responding: dims the tile once a missed check is confirmed thirty seconds later | derived from the read itself |
-| Status: ready, printing, warming up, offline | `hrPrinterStatus`, `hrDeviceStatus` |
+| Status: ready, printing, warming up, offline — a printer in standby reads as ready | `hrPrinterStatus`, `hrDeviceStatus` |
 | Panel message, e.g. "Ready" | `prtConsoleDisplayBufferText` |
 | Printer alerts, in the printer's own words | `prtAlertTable` |
 | Lifetime page count | `prtMarkerLifeCount` |
@@ -254,7 +254,11 @@ And a paired device only moves on a strict improvement. Pairing has nothing to l
 takes anything that answers; a device already set correctly has a working setting,
 possibly one its owner corrected by hand, and "the other version also replied" is no
 reason to overwrite it. Silence on one side and answers on the other still is, which is
-the case this was written for.
+the case this was written for — but only when the side that answers can read a table.
+The probe runs during an outage, which is exactly when the version in use is failing,
+so one dropped reply scores it as silent; the same Brother came back on v2c after the
+first fix by that route. A version that cannot walk a table cannot read the printer
+either, so the app never moves a paired device onto one.
 
 The two are closer than they look. IPP's supply levels use the same sentinels as
 RFC 3805 — -1 unavailable, -2 unknown, -3 present but unquantified — so the
@@ -397,6 +401,10 @@ npx tsc -p tsconfig.tools.json && node .toolsbuild/tools/probe.mjs 192.168.1.50 
   progress; awaiting it produced a "timeout after 10000ms" in the user's face.
   Every other endpoint reads with a short timeout and no retry for the same
   reason — one unreachable printer must not push the page past the limit.
+- **An empty tray is not always a shortage.** A manual feeder, and any slot whose
+  `prtInputMaxCapacity` is one sheet, rests empty: the HP Color LaserJet Pro 3202dw
+  calls its priority slot "Tray 1" and its 250-sheet cassette "Tray 2", and raised
+  paper low with a full cassette until those slots were left out of the alarm.
 - **Do not await the first poll in `onInit`.** Homey initialises devices in
   sequence, so blocking on a sleeping printer holds up every device behind it.
 - **`onoff` has insights titles, so every change of it is a line in the device
