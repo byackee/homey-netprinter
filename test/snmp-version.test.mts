@@ -74,7 +74,16 @@ describe('betterVersion', () => {
    */
   it('moves a device off a version that has stopped answering', () => {
     assert.equal(betterVersion(probes(silent, reads), 'v2c'), 'v1');
-    assert.equal(betterVersion(probes(silent, replies), 'v2c'), 'v1');
+  });
+
+  /**
+   * The same Brother, after 1.5.0. The probe runs during an outage, when the
+   * version in use is the one failing, so a single dropped reply scored v1 at
+   * zero and a v2c that answers sysDescr and reads nothing won one to nothing.
+   */
+  it('never moves a device onto a version that cannot read a table', () => {
+    assert.equal(betterVersion(probes(replies, silent), 'v1'), null);
+    assert.equal(betterVersion(probes(silent, replies), 'v2c'), null);
   });
 
   it('moves a device onto a version that can read when its own cannot', () => {

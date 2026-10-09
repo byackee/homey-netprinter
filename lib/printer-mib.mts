@@ -485,9 +485,17 @@ export function isPaperLow(
  * a printer about to stop, and a Lexmark that reports "Manual Paper 0 %" and
  * "Manual Envelope 0 %" alongside a full cassette would otherwise sit under a
  * paper alarm for ever.
+ *
+ * Nor does a slot that holds a single sheet, whatever type it claims. The HP
+ * Color LaserJet Pro 3202dw calls its one-sheet priority slot "Tray 1" and
+ * reports it empty, as it nearly always is, while the 250-sheet cassette is
+ * Tray 2 — so a printer full of paper read "Paper low: Tray 1" for its owner.
+ * A tray that can hold one sheet has no "nearly empty", only a sheet or none,
+ * and none is how it is meant to be left.
  */
 export function isTrayLow(thresholdPercent: number): (tray: InputTray) => boolean {
   return (tray) => tray.type !== 'sheetFeedManual'
+    && tray.maxCapacity !== 1
     && tray.percent !== null
     && tray.percent <= thresholdPercent;
 }

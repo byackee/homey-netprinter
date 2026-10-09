@@ -376,9 +376,9 @@ export default class PrinterDevice extends Homey.Device {
     const probes = await probeVersions(host, community, RENEGOTIATE_TIMEOUT_MS).catch(() => null);
     if (probes === null) return false;
 
-    // Strictly better, not merely different — see betterVersion. A device that
-    // is already set correctly must come out of this unchanged, because the
-    // last time it did not, a user spent two days putting their printer back
+    // Only onto a version that reads a table its own cannot — see betterVersion.
+    // A device that is already set correctly must come out of this unchanged,
+    // because twice it did not, and a user kept putting their printer back
     // onto v1 by hand.
     const found = betterVersion(probes, version);
     if (found === null) return false;

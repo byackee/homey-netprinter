@@ -352,6 +352,7 @@ export class PrinterReader {
     // run or just been skipped; either way this makes no request it can avoid.
     const firmware = await this.readFirmware(enterprise).catch(() => null);
 
+    const errors = decodeErrorState(Buffer.isBuffer(rawError) ? rawError : null);
     return {
       model: asString(scalars.get(OID.hrDeviceDescr)) ?? asString(scalars.get(OID.prtGeneralPrinterName)),
       name: asString(scalars.get(OID.sysName)),
@@ -361,10 +362,11 @@ export class PrinterReader {
       status: resolveStatus(
         decodePrinterStatus(asNumber(scalars.get(OID.hrPrinterStatus))),
         asNumber(scalars.get(OID.hrDeviceStatus)),
+        errors,
       ),
       displayText: asString(scalars.get(OID.prtConsoleDisplayBufferText)),
       pageCount: asNumber(scalars.get(OID.prtMarkerLifeCount)),
-      errors: decodeErrorState(Buffer.isBuffer(rawError) ? rawError : null),
+      errors,
       supplies,
       outputTrays,
       inputTrays,
@@ -891,10 +893,26 @@ export class PrinterReader {
  * whenever it says anything useful. It is also the one printers most often leave
  * at `unknown` while hrDeviceStatus correctly reports `down` — a jam or an empty
  * tray that would otherwise show up as no status at all.
+ *
+ * `other` on a device that is `running` is not a mystery either: RFC 3805
+ * names that pair Standby, "not immediately available but can accept new
+ * instructions" — a printer asleep with nothing wrong. An HP Color LaserJet Pro
+ * 3202dw read "Other" on SNMP and "Ready" over IPP for exactly that. Only
+ * `other`: `unknown` is the printer declining to say, not a state it names.
+ * And only with no error bit set, which is the third column of the RFC's row:
+ * firmware that leaves the pair alone while it reports a jam would otherwise
+ * show "Ready" beside its own problem alarm.
  */
-function resolveStatus(status: PrinterStatus, deviceStatus: number | null): PrinterStatus {
+export function resolveStatus(
+  status: PrinterStatus,
+  deviceStatus: number | null,
+  errors: readonly string[] = [],
+): PrinterStatus {
   if (status !== 'unknown' && status !== 'other') return status;
-  return DEVICE_STATUS[deviceStatus ?? 0] === 'down' ? 'offline' : status;
+  const device = DEVICE_STATUS[deviceStatus ?? 0];
+  if (device === 'down') return 'offline';
+  const standby = status === 'other' && device === 'running' && errors.length === 0;
+  return standby ? 'idle' : status;
 }
 
 /** The device half of a "device.supply" table index. */

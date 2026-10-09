@@ -395,6 +395,24 @@ describe('a manual feeder is not a paper shortage', () => {
   });
 });
 
+describe('a one-sheet slot is not a paper shortage', () => {
+  // HP Color LaserJet Pro 3202dw: Tray 1 is the one-sheet priority slot and
+  // reads empty, Tray 2 is the 250-sheet cassette that gives no number.
+  const prioritySlot = inputTray(0, 1, 'sheetFeedAutoNonRemovableTray');
+
+  it('ignores an empty priority slot whatever type it reports', () => {
+    assert.equal(isPaperLow([prioritySlot, inputTray(-3, 250)], [], 15), false);
+  });
+
+  it('still trusts the printer’s own paper warning', () => {
+    assert.equal(isPaperLow([prioritySlot], ['noPaper'], 15), true);
+  });
+
+  it('still reports a small real tray running out', () => {
+    assert.equal(isPaperLow([inputTray(0, 10)], [], 15), true);
+  });
+});
+
 describe('decodeInputType', () => {
   it('names the feeder types the alarm has to tell apart', () => {
     assert.equal(decodeInputType(5), 'sheetFeedManual');

@@ -566,6 +566,16 @@ export function versionScore(probe: VersionProbe | undefined): number {
  * So a switch has to be a strict improvement: the candidate must do something
  * the current version cannot. Which still catches what this is for — a firmware
  * update that switches v2c off leaves it scoring zero against a v1 that walks.
+ *
+ * And the candidate has to walk. Strictly better was not enough on its own: the
+ * probe only runs during an outage, which is exactly when the current version
+ * is failing, so one dropped reply on it scores it zero — and a v2c that merely
+ * answers sysDescr then wins one to nothing. The same Brother came back on v2c
+ * after 1.5.0 that way. A version that cannot read a table cannot read this
+ * device either, so moving onto it trades an outage for an outage on the wrong
+ * setting. The price is a printer with no supplies table whose firmware drops
+ * the version it was paired on: it stays unavailable until its owner switches
+ * it, which is what they would have had to do anyway before this existed.
  */
 export function betterVersion(
   probes: VersionProbes,
@@ -577,7 +587,7 @@ export function betterVersion(
   const scoreOf = (version: SnmpVersion): number =>
     versionScore(probes.find(([v]) => v === version)?.[1]);
 
-  return scoreOf(found) > scoreOf(current) ? found : null;
+  return scoreOf(found) === 2 && scoreOf(current) < 2 ? found : null;
 }
 
 /**
